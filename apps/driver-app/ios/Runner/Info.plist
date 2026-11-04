@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>JOLAY uses your location to match you with nearby ride requests and share your position with the passenger during a trip.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>JOLAY needs access to your photos so you can upload your identity and vehicle documents.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
