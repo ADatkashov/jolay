@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${JOLAY_TEST_DB_URL:jdbc:postgresql://localhost:5432/jolay_test}
+    username: ${JOLAY_TEST_DB_USER:jolay}
+    password: ${JOLAY_TEST_DB_PASSWORD:jolay}
+  flyway:
+    clean-disabled: false
+jolay:
+  dispatch.scheduler-delay-ms: 3600000   # tests drive the dispatcher explicitly
+  sms.log-code: false
+  payments.sandbox-webhook-secret: test-secret
+  security.otp-max-per-hour: 50
+  storage.documents-dir: build/test-docs

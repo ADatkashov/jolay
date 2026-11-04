@@ -1,0 +1,3 @@
+logging.structured.format.console: ecs
+jolay:
+  sms.log-code: false
