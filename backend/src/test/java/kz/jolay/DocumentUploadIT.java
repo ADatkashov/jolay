@@ -32,7 +32,11 @@ class DocumentUploadIT extends IntegrationTestBase {
         assertEquals(400, upload(d, "ID_CARD", "evil.png", "<script>alert(1)</script>".getBytes()).getStatusCode().value());
         assertEquals(400, upload(d, "NOT_A_TYPE", "id.png", PNG).getStatusCode().value());
         assertEquals(400, upload(d, "ID_CARD", "empty.png", new byte[0]).getStatusCode().value());
-        assertEquals(413, upload(d, "INSURANCE", "big.png", new byte[5 * 1024 * 1024 + 512 * 1024]).getStatusCode().value());
+        // Oversized file: the server may answer 413 or drop the connection while the client is still streaming (timing dependent);
+        // both mean "rejected". What must hold is that nothing was stored.
+        try { assertEquals(413, upload(d, "INSURANCE", "big.png", new byte[5 * 1024 * 1024 + 512 * 1024]).getStatusCode().value()); }
+        catch (org.springframework.web.client.ResourceAccessException connectionDropped) { /* rejected mid-stream */ }
+        assertEquals(1, jdbc.sql("SELECT count(*) FROM driver_documents").query(Integer.class).single(), "oversized upload must not be stored");
 
         String docId = get("/api/v1/drivers/documents", d.token()).body().get(0).path("id").asText();
         // the driver cannot read the stored file back through any endpoint, other roles are refused
