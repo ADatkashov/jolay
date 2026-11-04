@@ -50,8 +50,8 @@ public abstract class IntegrationTestBase {
                 // PostGIS was re-created: drop pooled connections holding stale type oids
                 if (dataSource instanceof com.zaxxer.hikari.HikariDataSource h) h.getHikariPoolMXBean().softEvictConnections(); }
         }
-        jdbc.sql("TRUNCATE users, cities_placeholder_never RESTART IDENTITY CASCADE".replace(", cities_placeholder_never", "")).update();
-        jdbc.sql("TRUNCATE audit_logs, notifications RESTART IDENTITY CASCADE").update();
+        jdbc.sql("TRUNCATE users RESTART IDENTITY CASCADE").update();
+        jdbc.sql("TRUNCATE audit_logs, notifications, ledger_transactions, payment_webhook_events RESTART IDENTITY CASCADE").update();
         jdbc.sql("INSERT INTO accounts(type) VALUES ('PLATFORM_REVENUE'),('EXTERNAL_CARD'),('EXTERNAL_CASH'),('PROMO')").update();
         jdbc.sql("UPDATE pricing_rules SET demand_multiplier=1.00, active=true").update();
         TestConfig.OTPS.clear();

@@ -47,7 +47,7 @@ public class CustomerController {
         UUID id = Auth.id();
         if (jdbc.sql("SELECT count(*) FROM rides WHERE (customer_id=:u OR driver_id=:u) AND status IN ('SEARCHING_DRIVER','DRIVER_ASSIGNED','DRIVER_ARRIVING','DRIVER_ARRIVED','IN_PROGRESS')").param("u", id).query(Integer.class).single() > 0)
             throw ApiException.conflict("active_ride_exists", "Finish your active ride before deleting the account");
-        jdbc.sql("UPDATE users SET status='DELETED', deleted_at=now(), full_name='Deleted user', email=NULL, avatar_url=NULL, phone='deleted:'||id::text, updated_at=now() WHERE id=:id").param("id", id).update();
+        jdbc.sql("UPDATE users SET status='DELETED', deleted_at=now(), full_name='Deleted user', email=NULL, avatar_url=NULL, phone='del:'||substr(replace(id::text,'-',''),1,15), updated_at=now() WHERE id=:id").param("id", id).update();
         jdbc.sql("UPDATE refresh_tokens SET revoked_at=now() WHERE user_id=:id AND revoked_at IS NULL").param("id", id).update();
         jdbc.sql("UPDATE customer_addresses SET deleted_at=now() WHERE user_id=:id").param("id", id).update();
         jdbc.sql("DELETE FROM user_devices WHERE user_id=:id").param("id", id).update();
