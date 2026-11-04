@@ -63,6 +63,18 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.CONFLICT, "conflict", "Resource already exists or is in a conflicting state", null);
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    ResponseEntity<ErrorBody> noResource(Exception e) { return body(HttpStatus.NOT_FOUND, "not_found", "Not found", null); }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<ErrorBody> method(Exception e) { return body(HttpStatus.METHOD_NOT_ALLOWED, "method_not_allowed", "Method not allowed", null); }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<ErrorBody> mediaType(Exception e) { return body(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported_media_type", "Unsupported media type", null); }
+
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class, org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ErrorBody> badParam(Exception e) { return body(HttpStatus.BAD_REQUEST, "invalid_parameter", "Invalid or missing request parameter", null); }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorBody> other(Exception e) {
         log.error("unhandled error", e);

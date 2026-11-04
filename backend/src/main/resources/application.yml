@@ -4,7 +4,10 @@ spring:
     url: ${JOLAY_DB_URL:jdbc:postgresql://localhost:5432/jolay}
     username: ${JOLAY_DB_USER:jolay}
     password: ${JOLAY_DB_PASSWORD:jolay}
-    hikari.maximum-pool-size: ${JOLAY_DB_POOL:20}
+    hikari:
+      maximum-pool-size: ${JOLAY_DB_POOL:20}
+      # Audit finding: PostgreSQL's default jit=on added ~2.7 s of compile time to a 19 ms PostGIS query
+      connection-init-sql: SET jit = off
   flyway.enabled: true
   jackson:
     default-property-inclusion: non_null

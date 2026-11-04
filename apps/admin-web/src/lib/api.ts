@@ -50,3 +50,13 @@ export async function login(identifier: string, password: string): Promise<Sessi
   saveSession(s);
   return s;
 }
+
+/** Fetches a protected file (driver document) with the staff token and opens it in a new tab via a temporary blob URL. */
+export async function openProtectedFile(path: string): Promise<void> {
+  const s = loadSession();
+  const r = await fetch(`/api/v1${path}`, { headers: s ? { Authorization: `Bearer ${s.accessToken}` } : {} });
+  if (!r.ok) throw new ApiError(r.status, "error", r.statusText);
+  const url = URL.createObjectURL(await r.blob());
+  window.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

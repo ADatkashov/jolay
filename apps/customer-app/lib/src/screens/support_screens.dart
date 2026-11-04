@@ -35,7 +35,7 @@ class SupportListScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(builder: (c, set) => AlertDialog(
       title: Text(ref.t('support.new')),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: category, items: [for (final k in ['RIDE', 'PAYMENT', 'SAFETY', 'OTHER']) DropdownMenuItem(value: k, child: Text(k))], onChanged: (x) => set(() => category = x ?? 'RIDE')),
+        DropdownButtonFormField<String>(initialValue: category, items: [for (final k in ['RIDE', 'PAYMENT', 'SAFETY', 'OTHER']) DropdownMenuItem(value: k, child: Text(k))], onChanged: (x) => set(() => category = x ?? 'RIDE')),
         const SizedBox(height: 10), TextField(controller: subject, decoration: InputDecoration(labelText: ref.t('support.subject'))),
         const SizedBox(height: 10), TextField(controller: msg, maxLines: 3, decoration: InputDecoration(labelText: ref.t('support.message'))),
       ]),

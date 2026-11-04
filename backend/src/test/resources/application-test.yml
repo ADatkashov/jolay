@@ -6,6 +6,7 @@ spring:
   flyway:
     clean-disabled: false
 jolay:
+  ratelimit: { auth-per-minute: 100000, api-per-minute: 100000 }
   dispatch.scheduler-delay-ms: 3600000   # tests drive the dispatcher explicitly
   sms.log-code: false
   payments.sandbox-webhook-secret: test-secret

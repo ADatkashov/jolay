@@ -1,3 +1,5 @@
+> Full audit with evidence and verdict: [../CTO_FINAL_AUDIT.md](../CTO_FINAL_AUDIT.md). Roadmap: [../JOLAY_PRODUCT_ROADMAP_2027.md](../JOLAY_PRODUCT_ROADMAP_2027.md).
+
 # Implementation status (honest)
 
 Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, not covered by an automated test · 🧪 development-only integration · ⛔ not built

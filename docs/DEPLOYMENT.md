@@ -11,19 +11,24 @@ Compose is a **development** stack (dev OTP logging, default ports). For product
 * put TLS termination + rate limiting in front (nginx/ingress), terminate `wss` at the same host;
 * use a managed PostgreSQL with PostGIS, daily backups (`scripts/backup-db.sh`), point-in-time recovery, and test restores.
 
+## Management port (prod)
+In the `prod` profile Actuator (`/actuator/health/*`, `/actuator/prometheus`) is served on `JOLAY_MGMT_PORT` (default **8081**) and is not reachable on 8080. Do not expose 8081 through the ingress; probes and Prometheus use it. Dev/compose runs without the profile (health on 8080, metrics need a SUPER_ADMIN token).
+Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, DB credentials, `JOLAY_CORS_ORIGINS`, a real payment provider (or `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` for an internal demo only).
+
 ## Kubernetes
 `infrastructure/kubernetes/backend.yaml` (Deployment, Service, probes, non-root, resource limits). Secrets are created with `kubectl create secret generic jolay-secrets ...` (see file header).
 Note: WebSocket events are in-process → keep `replicas: 1` for the realtime features until events are fanned out across replicas (see ARCHITECTURE.md), or use sticky sessions and accept missed events (clients re-sync via REST).
 Prometheus scrape config: `infrastructure/monitoring/prometheus.yml`; metrics at `/actuator/prometheus` (`jolay.*` counters + JVM/HTTP/Hikari).
 
 ## CI (GitHub Actions: `.github/workflows/ci.yml`)
-Backend tests against a PostGIS service container, admin build+tests, Flutter analyze+test for both apps, backend Docker build. **The workflow has not been executed on GitHub yet.**
+Backend tests against a PostGIS service container, admin build+tests, Flutter analyze+test for both apps, backend Docker build. First GitHub run: backend tests (PostGIS service), admin build/tests and the backend Docker build passed; the Flutter jobs failed on `flutter analyze` info-level findings, now fixed. See docs/CTO_FINAL_AUDIT.md.
 
 ## Backups & disaster recovery (plan, not exercised)
 Nightly `pg_dump -Fc` shipped off-site + WAL archiving for PITR; RPO ≤ 5 min / RTO ≤ 1 h are *targets*, not verified. Money tables (`ledger_*`, `payment_*`) must be included in every backup and are append-only.
 Restore drill: restore dump into a scratch DB, run `SELECT sum(balance) FROM accounts` (must be 0) and the ledger consistency queries from `IntegrationTestBase.assertLedgerBalanced`.
 
 ## Load test
+Latest measurements, EXPLAIN ANALYZE results and a verified backup/restore drill: [CTO_FINAL_AUDIT.md](CTO_FINAL_AUDIT.md) §6–7. The table below is the first run (before the audit changes).
 `scripts/loadtest.py`, run on the build container (4 vCPU, backend + PostgreSQL 16/PostGIS + load generator **sharing** the machine, Java 21, default Hikari pool 20), 300 seeded drivers, 150 customers, 32 client threads:
 
 | Scenario | Result |

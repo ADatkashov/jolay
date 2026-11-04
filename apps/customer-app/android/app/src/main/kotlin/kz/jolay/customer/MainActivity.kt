@@ -1,4 +1,4 @@
-package kz.jolay.jolay_driver
+package kz.jolay.customer
 
 import io.flutter.embedding.android.FlutterActivity
 

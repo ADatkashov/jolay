@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, openProtectedFile } from "../lib/api";
 import { canEditPricing, canVerifyDrivers } from "../lib/nav";
 import { kzt, when } from "../lib/format";
 import { useApi, Status } from "./hooks";
@@ -38,8 +38,13 @@ export function Rides() {
 
 export function Drivers({ roles }: { roles: string[] }) {
   const [filter, setFilter] = useState("PENDING"); const [msg, setMsg] = useState("");
+  const [docs, setDocs] = useState<{ driver: string; items: Row[] } | null>(null);
   const { data, error, loading, reload } = useApi<Row[]>(`/admin/drivers${filter ? `?verification=${filter}` : ""}`);
   const can = canVerifyDrivers(roles);
+  const showDocs = async (d: Row) => {
+    try { setDocs({ driver: d.full_name, items: await api<Row[]>("GET", `/admin/drivers/${d.id}/documents`) }); setMsg(""); }
+    catch (e) { setMsg(e instanceof ApiError ? e.message : "Network error"); }
+  };
   const set = (id: string, status: string) => {
     const reason = status === "APPROVED" ? undefined : window.prompt("Reason (required):") ?? "";
     if (status !== "APPROVED" && !reason) return;
@@ -52,9 +57,14 @@ export function Drivers({ roles }: { roles: string[] }) {
     <table><thead><tr><th>Driver</th><th>Phone</th><th>Vehicle</th><th>Docs</th><th>Verification</th><th>State</th><th>Rating</th><th /></tr></thead><tbody>
       {data?.map((d) => <tr key={d.id}><td>{d.full_name}</td><td>{d.phone}</td><td>{d.brand} {d.model} · {d.plate} · {d.category_code}</td><td>{d.documents}</td>
         <td>{pill(d.verification)}</td><td>{pill(d.availability)}</td><td>{d.rating_avg} ({d.rating_count})</td>
-        <td className="row">{can && d.verification !== "APPROVED" && <button className="btn" onClick={() => set(d.id, "APPROVED")}>Approve</button>}
+        <td className="row">{can && <button className="btn ghost" onClick={() => void showDocs(d)}>Documents</button>}{can && d.verification !== "APPROVED" && <button className="btn" onClick={() => set(d.id, "APPROVED")}>Approve</button>}
           {can && d.verification === "PENDING" && <button className="btn ghost" onClick={() => set(d.id, "REJECTED")}>Reject</button>}
-          {can && d.verification === "APPROVED" && <button className="btn danger" onClick={() => set(d.id, "SUSPENDED")}>Suspend</button>}</td></tr>)}</tbody></table></>;
+          {can && d.verification === "APPROVED" && <button className="btn danger" onClick={() => set(d.id, "SUSPENDED")}>Suspend</button>}</td></tr>)}</tbody></table>
+    {docs && <div className="card" style={{ marginTop: 16, maxWidth: 560 }}><h3>Documents — {docs.driver}</h3>
+      {docs.items.length === 0 && <p className="muted">No documents uploaded.</p>}
+      {docs.items.map((x) => <div className="row" key={x.id} style={{ justifyContent: "space-between", margin: "6px 0" }}><span>{x.type} · {x.content_type} · {Math.round(x.size_bytes / 1024)} KB</span>
+        <button className="btn ghost" onClick={() => void openProtectedFile(`/admin/drivers/documents/${x.id}/file`).catch(() => setMsg("Could not open document"))}>Open (audited)</button></div>)}
+      <button className="btn ghost" onClick={() => setDocs(null)}>Close</button></div>}</>;
 }
 
 export function Customers({ roles }: { roles: string[] }) {

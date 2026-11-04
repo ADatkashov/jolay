@@ -28,8 +28,10 @@ public class SandboxPaymentProvider implements PaymentProvider {
 
     @Override public Initiation initiate(UUID paymentId, BigDecimal amount, String currency, String description) {
         String ref = "sbx_" + UUID.randomUUID().toString().replace("-", "");
-        return new Initiation(ref, baseUrl + "/api/v1/payments/" + paymentId + "/sandbox-checkout");
+        return new Initiation(ref, checkoutUrl(paymentId));
     }
+
+    @Override public String checkoutUrl(UUID paymentId) { return baseUrl + "/api/v1/payments/" + paymentId + "/sandbox-checkout"; }
 
     public String sign(String body) {
         try {

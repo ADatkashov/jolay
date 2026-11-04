@@ -71,30 +71,34 @@ public class DispatchService {
         BigDecimal floor = settings.getDecimal("wallet.driver_min_balance");
 
         List<Candidate> cands = jdbc.sql("""
-                SELECT d.user_id, v.id AS vehicle_id,
-                       ST_Distance(dl.location, r.pickup) AS dist
+                SELECT d.user_id, near.vehicle_id, near.dist
                 FROM rides r
-                JOIN drivers d ON d.city_id = r.city_id
-                JOIN driver_locations dl ON dl.driver_id = d.user_id
-                JOIN vehicles v ON v.driver_id = d.user_id AND v.active AND v.approved
-                JOIN vehicle_categories vc ON vc.code = v.category_code
-                JOIN vehicle_categories rc ON rc.code = r.category_code
-                JOIN users u ON u.id = d.user_id AND u.status='ACTIVE' AND u.deleted_at IS NULL
-                LEFT JOIN accounts a ON a.owner_id = d.user_id AND a.type='DRIVER_WALLET'
+                JOIN LATERAL (
+                    -- KNN over the GiST index: stops after :pool eligible drivers, so cost does not grow with driver density
+                    SELECT dl.driver_id, v.id AS vehicle_id, ST_Distance(dl.location, r.pickup) AS dist
+                    FROM driver_locations dl
+                    JOIN drivers d2 ON d2.user_id = dl.driver_id
+                    JOIN vehicles v ON v.driver_id = d2.user_id AND v.active AND v.approved
+                    JOIN vehicle_categories vc ON vc.code = v.category_code
+                    JOIN vehicle_categories rc ON rc.code = r.category_code
+                    JOIN users u ON u.id = d2.user_id AND u.status='ACTIVE' AND u.deleted_at IS NULL
+                    LEFT JOIN accounts a ON a.owner_id = d2.user_id AND a.type='DRIVER_WALLET'
+                    WHERE d2.city_id = r.city_id AND d2.verification='APPROVED' AND d2.availability='ONLINE'
+                      AND dl.updated_at > now() - make_interval(secs => :age)
+                      AND ST_DWithin(dl.location, r.pickup, :radius)
+                      AND ((rc.code='XL' AND vc.code='XL') OR (rc.code<>'XL' AND vc.code<>'XL' AND vc.rank >= rc.rank))
+                      AND COALESCE(a.balance, 0) >= :floor
+                      AND NOT EXISTS (SELECT 1 FROM ride_offers o WHERE o.ride_id=r.id AND o.driver_id=d2.user_id)
+                    ORDER BY dl.location <-> r.pickup
+                    LIMIT :pool
+                ) near ON true
+                JOIN drivers d ON d.user_id = near.driver_id
                 WHERE r.id = :rid
-                  AND d.verification='APPROVED' AND d.availability='ONLINE'
-                  AND dl.updated_at > now() - make_interval(secs => :age)
-                  AND ST_DWithin(dl.location, r.pickup, :radius)
-                  AND ((rc.code='XL' AND vc.code='XL') OR (rc.code<>'XL' AND vc.code<>'XL' AND vc.rank >= rc.rank))
-                  AND COALESCE(a.balance, 0) >= :floor
-                  AND NOT EXISTS (SELECT 1 FROM ride_offers o WHERE o.ride_id=r.id AND o.driver_id=d.user_id)
-                ORDER BY ST_Distance(dl.location, r.pickup)
-                         * (1 + 0.5 * (1 - CASE WHEN d.offers_total = 0 THEN 1.0 ELSE d.offers_accepted::numeric / d.offers_total END)),
-                         d.user_id
+                ORDER BY near.dist * (1 + 0.5 * (1 - CASE WHEN d.offers_total = 0 THEN 1.0 ELSE d.offers_accepted::numeric / d.offers_total END)), d.user_id
                 LIMIT :n
                 FOR UPDATE OF d SKIP LOCKED""")
                 .param("rid", rideId).param("age", maxAgeSec).param("radius", radius).param("floor", floor)
-                .param("n", settings.getInt("dispatch.max_candidates_per_round"))
+                .param("pool", settings.getInt("dispatch.candidate_pool")).param("n", settings.getInt("dispatch.max_candidates_per_round"))
                 .query((rs, i) -> new Candidate(rs.getObject("user_id", UUID.class), rs.getObject("vehicle_id", UUID.class), rs.getDouble("dist"))).list();
 
         if (cands.isEmpty()) return;         // the scheduler retries with a wider radius as time passes

@@ -13,6 +13,9 @@ public interface PaymentProvider {
     /** Create a payment at the gateway. Returns the gateway reference and the URL/SDK payload the client must open. */
     Initiation initiate(UUID paymentId, BigDecimal amount, String currency, String description);
 
+    /** Checkout URL of an existing payment (used when a client re-requests a pending payment). */
+    String checkoutUrl(UUID paymentId);
+
     /** Verify the authenticity of a callback body. */
     boolean verifySignature(String rawBody, String signatureHeader);
 

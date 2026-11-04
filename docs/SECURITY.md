@@ -13,9 +13,11 @@
 * Secrets only via environment; `.env` is git-ignored; no default admin password (bootstrap requires env vars).
 * Correlation ids on every response/log line; logs avoid phone numbers (masked) and never include tokens/OTPs/card data. No card data is handled at all.
 
+* Startup guard (`ProductionSafetyCheck`): the `prod` profile refuses to start with the default JWT secret, OTP logging, or the sandbox payment gateway. Swagger is disabled and `/actuator/*` moves to a private management port (8081) in `prod`.
+
 ## Known gaps — do before production
-* **No API rate limiting** beyond OTP/login throttles (add at the gateway/ingress, and per-user limits for location updates).
-* Login throttle is per-instance memory; move to the DB/Redis for multi-replica.
+* Rate limiting is per instance (`RateLimitFilter`: auth endpoints per IP, API per user). Add a global limit at the gateway/ingress.
+* Login lockout is per-instance memory; move to the DB/Redis for multi-replica.
 * WebSocket takes the JWT in the query string — redact in proxy logs or switch to a ticket exchange.
 * No MFA for staff, no IP allow-listing for the admin console, no session listing/revocation UI.
 * Driver document files are on local disk — use encrypted object storage with signed URLs and malware scanning.

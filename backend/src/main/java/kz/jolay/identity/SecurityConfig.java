@@ -27,7 +27,7 @@ public class SecurityConfig {
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(11); }
 
     @Bean
-    SecurityFilterChain chain(HttpSecurity http, JwtAuthFilter jwtFilter, @org.springframework.beans.factory.annotation.Qualifier("corsConfigurationSource") CorsConfigurationSource cors) throws Exception {
+    SecurityFilterChain chain(HttpSecurity http, @org.springframework.beans.factory.annotation.Value("${management.server.port:-1}") int mgmtPort, JwtAuthFilter jwtFilter, @org.springframework.beans.factory.annotation.Qualifier("corsConfigurationSource") CorsConfigurationSource cors) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)           // stateless bearer-token API, no cookies
             .cors(c -> c.configurationSource(cors))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -35,10 +35,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/payments/webhooks/**").permitAll()   // authenticated by signature
                 .requestMatchers("/api/v1/catalog/**").permitAll()
-                .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
+                .requestMatchers("/actuator/health/**").permitAll()      // metrics only on the private management port (prod) or for SUPER_ADMIN
                 .requestMatchers("/api/v1/docs/**", "/api/v1/swagger-ui/**", "/api/v1/swagger-ui.html").permitAll()
                 .requestMatchers("/ws").permitAll()                              // token validated in the handshake
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(r -> r.getLocalPort() == mgmtPort).permitAll()       // private management port (not exposed by the ingress)
                 .requestMatchers("/api/v1/admin/**").hasAnyRole("SUPER_ADMIN", "OPERATIONS_ADMIN", "FINANCE_ADMIN", "SUPPORT_AGENT", "PARTNER_ADMIN")
                 .anyRequest().authenticated())
             .exceptionHandling(e -> e

@@ -15,6 +15,7 @@ import java.io.IOException;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+    public static final String PARSED_USER = "jolay.parsedUser";
     private final JwtService jwt;
     private final JdbcClient jdbc;
 
@@ -25,7 +26,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String h = req.getHeader("Authorization");
         if (h != null && h.startsWith("Bearer ")) {
-            jwt.parse(h.substring(7)).ifPresent(u -> {
+            Object cached = req.getAttribute(PARSED_USER);
+            (cached instanceof AuthUser cu ? java.util.Optional.of(cu) : jwt.parse(h.substring(7))).ifPresent(u -> {
                 // Suspended / deleted accounts lose access immediately, even with a valid token.
                 boolean active = jdbc.sql("SELECT status='ACTIVE' FROM users WHERE id=:id AND deleted_at IS NULL")
                         .param("id", u.id()).query(Boolean.class).optional().orElse(false);

@@ -142,6 +142,11 @@ class _OtpState extends ConsumerState<DriverOtp> {
     catch (e) { if (mounted) { _code.clear(); toast(context, ref, e); } } finally { if (mounted) setState(() => _busy = false); }
   }
 
+  Future<void> _resend() async {
+    try { await ref.read(authProvider.notifier).resendOtp(widget.phone); }
+    catch (e) { if (!mounted) return; toast(context, ref, e); }
+  }
+
   @override
   Widget build(BuildContext context) => _DarkAuth(title: ref.t('auth.otpTitle'), children: [
         Text('${ref.t('auth.otpBody')} ${widget.phone}', style: const TextStyle(color: Colors.white70)),
@@ -149,6 +154,6 @@ class _OtpState extends ConsumerState<DriverOtp> {
         TextField(key: const Key('d-otp'), controller: _code, keyboardType: TextInputType.number, maxLength: 6, textAlign: TextAlign.center, inputFormatters: [FilteringTextInputFormatter.digitsOnly], style: const TextStyle(fontSize: 28, letterSpacing: 10, fontWeight: FontWeight.w800), decoration: const InputDecoration(counterText: ''), onChanged: (s) { setState(() {}); if (s.length == 6) _verify(); }),
         const SizedBox(height: 16),
         JolayButton(label: ref.t('btn.continue'), busy: _busy, onPressed: _code.text.length == 6 ? _verify : null),
-        TextButton(onPressed: () async { try { await ref.read(authProvider.notifier).resendOtp(widget.phone); } catch (e) { if (mounted) toast(context, ref, e); } }, child: Text(ref.t('auth.resend'), style: const TextStyle(color: Colors.white70))),
+        TextButton(onPressed: _resend, child: Text(ref.t('auth.resend'), style: const TextStyle(color: Colors.white70))),
       ]);
 }

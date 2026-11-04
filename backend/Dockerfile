@@ -12,5 +12,5 @@ WORKDIR /app
 COPY --from=build /src/build/libs/*.jar app.jar
 ENV JOLAY_DOCS_DIR=/data/documents SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080
-HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD ["sh","-c","wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD ["sh","-c","wget -qO- http://localhost:8081/actuator/health/readiness 2>/dev/null | grep -q UP || wget -qO- http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q UP"]
 ENTRYPOINT ["java","-XX:MaxRAMPercentage=75","-jar","app.jar"]

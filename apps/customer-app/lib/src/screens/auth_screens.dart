@@ -140,7 +140,9 @@ class _LoginState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
       if (e is ApiException && e.code == 'phone_not_verified') {
         // Account exists but the phone was never verified: send a fresh code and continue verification.
-        try { final p = Validators.normalizePhone(_id.text); await ref.read(authProvider.notifier).resendOtp(p); if (mounted) context.push('/otp', extra: p); return; } catch (_) {}
+        final router = GoRouter.of(context);
+        try { final p = Validators.normalizePhone(_id.text); await ref.read(authProvider.notifier).resendOtp(p); router.push('/otp', extra: p); return; } catch (_) {}
+        if (!mounted) return;
       }
       showError(context, ref, e);
     } finally { if (mounted) setState(() => _busy = false); }

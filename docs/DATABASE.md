@@ -2,6 +2,7 @@
 
 PostgreSQL 16 + PostGIS 3, schema managed by Flyway (`backend/src/main/resources/db/migration`).
 * `V1__core_schema.sql` – all tables, constraints, indexes, immutability triggers.
+* `V3__dispatch_pool_setting.sql`, `V4__driver_locations_tuning.sql` – KNN candidate pool setting; `driver_locations` UNLOGGED + fillfactor/autovacuum tuning (audit).
 * `V2__reference_data.sql` – Almaty city/zone, 4 vehicle categories, launch tariffs, dispatch settings, system ledger accounts, 12 landmarks.
 
 Geography columns use `GEOGRAPHY(Point|Polygon, 4326)` with GiST indexes (`driver_locations`, `service_zones`, `places`).
@@ -29,6 +30,11 @@ Not created yet (from the brief): delivery_*, partners/stores/products, referral
 | One payment attempt in flight per ride | `ux_pay_one_pending_ride` |
 
 Invariant tested after every money scenario: `sum(accounts.balance) = 0`, every ledger transaction sums to 0, cached balances equal the ledger sums.
+
+## PostGIS notes
+* `geography` is used for driver/rider points and zones so distances are in metres (`ST_DWithin`, `<->`). PostGIS finds *geographic* candidates; the dispatch engine decides. Straight-line distance is not road distance — real ETA needs a routing provider.
+* Candidate search is KNN over the GiST index (`ORDER BY location <-> pickup LIMIT pool`), then eligibility/ranking. Run the PostgreSQL server with `jit = off` for this workload (the app also sets it per connection).
+* `driver_locations` is UNLOGGED (latest position only; empty after a crash until drivers re-send). Detailed plans and timings: CTO_FINAL_AUDIT.md §6.
 
 ## Query/perf notes
 Dispatch candidate search = `ST_DWithin` on GiST + joins, `FOR UPDATE OF d SKIP LOCKED`. Measured with 300 drivers only (see DEPLOYMENT.md);

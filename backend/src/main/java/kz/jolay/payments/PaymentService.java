@@ -147,12 +147,7 @@ public class PaymentService {
         return new PaymentView(id, "PENDING", purpose, amount, p.name(), init.checkoutUrl(), rideId);
     }
 
-    private String checkoutUrl(UUID paymentId) {
-        return providerBaseCheckout(paymentId);
-    }
-    private String providerBaseCheckout(UUID id) {
-        return provider(defaultProvider).initiate(id, BigDecimal.ONE, "KZT", "").checkoutUrl();
-    }
+    private String checkoutUrl(UUID paymentId) { return provider(defaultProvider).checkoutUrl(paymentId); }
 
     public PaymentView get(UUID userId, UUID paymentId, boolean admin) {
         var e = jdbc.sql("SELECT id,user_id,status,purpose,amount,provider,ride_id FROM payment_transactions WHERE id=:id").param("id", paymentId).query().listOfRows()

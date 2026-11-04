@@ -74,7 +74,7 @@ class AuthController extends Notifier<AuthState> {
   Future<void> reset(String identifier, String code, String newPassword) => _api.post('/auth/reset-password', auth: false, body: {'identifier': identifier, 'code': code, 'newPassword': newPassword});
 
   Future<void> updateProfile({String? fullName, String? email, String? locale}) async {
-    final me = await _api.put('/customers/me', body: {if (fullName != null) 'fullName': fullName, if (email != null) 'email': email, if (locale != null) 'locale': locale}) as Map<String, dynamic>;
+    final me = await _api.put('/customers/me', body: {'fullName': ?fullName, 'email': ?email, 'locale': ?locale}) as Map<String, dynamic>;
     state = AuthState(AuthStatus.signedIn, AuthUser.fromJson(me));
   }
 
