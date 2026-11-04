@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jolay_core/jolay_core.dart';
-import 'package:jolay_driver/src/auth.dart';
 import 'package:jolay_driver/src/data.dart';
 import 'package:jolay_driver/src/home.dart';
 
