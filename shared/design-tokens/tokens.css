@@ -1,0 +1,6 @@
+:root {
+  --jolay-midnight: #171717; --jolay-yellow: #F5BD35; --jolay-cloud: #F7F7F4; --jolay-white: #FFFFFF;
+  --jolay-text: #171717; --jolay-text-2: #777777; --jolay-success: #20A46B; --jolay-error: #E5484D; --jolay-border: #EAEAEA;
+  --jolay-radius-sm: 8px; --jolay-radius-md: 14px; --jolay-radius-lg: 20px;
+  --jolay-font: Manrope, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
