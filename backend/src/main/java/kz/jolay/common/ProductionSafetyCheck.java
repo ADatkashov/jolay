@@ -1,0 +1,29 @@
+package kz.jolay.common;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PostConstruct;
+
+/** Refuses to start in the prod profile with development-only settings (audit: default secret / sandbox gateway / OTP logging). */
+@Component
+@Profile("prod")
+public class ProductionSafetyCheck {
+    private final String jwtSecret, paymentProvider;
+    private final boolean logCode, allowSandbox;
+
+    public ProductionSafetyCheck(@Value("${jolay.security.jwt-secret}") String jwtSecret, @Value("${jolay.payments.provider}") String paymentProvider,
+                                 @Value("${jolay.sms.log-code:false}") boolean logCode, @Value("${JOLAY_ALLOW_SANDBOX_PAYMENTS:false}") boolean allowSandbox) {
+        this.jwtSecret = jwtSecret; this.paymentProvider = paymentProvider; this.logCode = logCode; this.allowSandbox = allowSandbox;
+    }
+
+    @PostConstruct
+    void verify() {
+        if (jwtSecret.startsWith("dev-only-secret")) throw new IllegalStateException("prod profile: JOLAY_JWT_SECRET must be set to a real secret");
+        if (logCode) throw new IllegalStateException("prod profile: JOLAY_SMS_LOG_CODE must be false");
+        if ("sandbox".equals(paymentProvider) && !allowSandbox)
+            throw new IllegalStateException("prod profile: the sandbox payment gateway would let anyone mark payments as paid. Configure a real provider "
+                    + "(or set JOLAY_ALLOW_SANDBOX_PAYMENTS=true for a closed internal demo only)");
+    }
+}

@@ -1,0 +1,187 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const supportedLocales = [Locale('kk'), Locale('ru'), Locale('en')];
+
+/// All user-visible text lives here (kk / ru / en). Widgets never hardcode copy.
+/// Backend error codes map to `err.<code>`.
+const Map<String, Map<String, String>> _s = {
+  'kk': {
+    'app.slogan': 'Қалаң. Жолың.', 'app.tag': 'Жол. Жеткізу. Күн сайын.',
+    'welcome.title': 'Жүр, жеткіз, алға жыл.', 'welcome.body': 'Күнделікті сапарларыңа арналған жылдам, қауіпсіз әрі қолжетімді қызметтер.',
+    'welcome.s2': 'Жақын жердегі жүргізуші бірнеше секундта табылады', 'welcome.s3': 'Бағаны алдын ала көр, төлем ашық',
+    'btn.start': 'Бастау', 'btn.login': 'Кіру', 'btn.signup': 'Тіркелу', 'btn.continue': 'Жалғастыру', 'btn.next': 'Келесі', 'btn.cancel': 'Бас тарту', 'btn.done': 'Дайын',
+    'btn.save': 'Сақтау', 'btn.send': 'Жіберу', 'btn.retry': 'Қайталау', 'btn.logout': 'Шығу', 'btn.delete': 'Өшіру',
+    'auth.fullName': 'Аты-жөні', 'auth.email': 'Email (міндетті емес)', 'auth.phone': 'Телефон нөмірі', 'auth.password': 'Құпиясөз', 'auth.confirm': 'Құпиясөзді қайталау',
+    'auth.phoneOrEmail': 'Телефон немесе email', 'auth.forgot': 'Құпиясөзді ұмыттыңыз ба?', 'auth.haveAccount': 'Аккаунтыңыз бар ма?', 'auth.noAccount': 'Аккаунтыңыз жоқ па?',
+    'auth.terms': 'Пайдалану шарттары мен құпиялылық саясатымен келісемін', 'auth.createTitle': 'Аккаунт ашу', 'auth.loginTitle': 'Қайта келуіңізбен',
+    'auth.otpTitle': 'Телефонды растау', 'auth.otpBody': 'Кодты мына нөмірге жібердік:', 'auth.resendIn': 'Қайта жіберу', 'auth.resend': 'Кодты қайта жіберу', 'auth.code': '6 таңбалы код',
+    'auth.forgotTitle': 'Құпиясөзді қалпына келтіру', 'auth.forgotBody': 'Телефон нөміріңізді енгізіңіз — растау кодын жібереміз.', 'auth.resetTitle': 'Жаңа құпиясөз', 'auth.newPassword': 'Жаңа құпиясөз',
+    'auth.resetDone': 'Құпиясөз өзгертілді. Енді кіре аласыз.',
+    'val.name': 'Аты-жөніңізді енгізіңіз', 'val.email': 'Email дұрыс емес', 'val.password': 'Кемінде 8 таңба, әріп және сан болуы керек', 'val.confirm': 'Құпиясөздер сәйкес емес', 'val.phone': 'Телефон нөмірін халықаралық форматта енгізіңіз', 'val.terms': 'Шарттармен келісу қажет',
+    'home.greeting': 'Сәлем', 'home.where': 'Қайда барасыз?', 'home.pickup': 'Алып кету орны', 'home.currentLocation': 'Ағымдағы орын', 'home.recent': 'Соңғы мекенжайлар', 'home.noRecent': 'Әзірге сапарлар жоқ',
+    'home.ride': 'Такси', 'home.delivery': 'Жеткізу', 'home.express': 'Экспресс', 'home.soon': 'Жақында', 'home.saved': 'Сақталған мекенжайлар',
+    'nav.home': 'Басты', 'nav.activity': 'Белсенділік', 'nav.wallet': 'Әмиян', 'nav.profile': 'Профиль', 'nav.orders': 'Тапсырыстар', 'nav.earnings': 'Табыс',
+    'ride.destination': 'Межелі жер', 'ride.search': 'Мекенжай немесе орын іздеу', 'ride.chooseRide': 'Көлік таңдаңыз', 'ride.payment': 'Төлем тәсілі', 'ride.confirm': 'Тапсырыс беру',
+    'ride.eta': 'мин', 'ride.noDrivers': 'Жақын жерде жүргізуші жоқ', 'ride.seats': 'орын', 'ride.routeEstimated': 'Бағалық маршрут (нақты навигация емес)',
+    'ride.finding': 'Жүргізуші ізделуде…', 'ride.findingBody': 'Жақын жердегі жүргізушіге сұраныс жіберілді', 'ride.found': 'Жүргізуші табылды', 'ride.arriving': 'Жүргізуші келе жатыр', 'ride.arrived': 'Жүргізуші келді',
+    'ride.inProgress': 'Сапар жүріп жатыр', 'ride.completed': 'Сапар аяқталды', 'ride.cancelled': 'Сапар бас тартылды', 'ride.expired': 'Жүргізуші табылмады', 'ride.cancel': 'Сапардан бас тарту',
+    'ride.cancelFee': 'Кеш бас тартқаны үшін комиссия алынуы мүмкін', 'ride.call': 'Қоңырау', 'ride.share': 'Бөлісу', 'ride.sos': 'SOS', 'ride.total': 'Жалпы құны', 'ride.distance': 'Қашықтық', 'ride.duration': 'Уақыты', 'ride.km': 'км',
+    'ride.fareBreakdown': 'Баға құрамы', 'ride.base': 'Негізгі тариф', 'ride.distanceFare': 'Қашықтық', 'ride.timeFare': 'Уақыт', 'ride.fees': 'Қызмет алымы', 'ride.pay': 'Төлеу', 'ride.paid': 'Төленді', 'ride.paymentPending': 'Төлем күтілуде', 'ride.paymentFailed': 'Төлем өтпеді',
+    'ride.rate': 'Жүргізушіні бағалаңыз', 'ride.comment': 'Пікір (міндетті емес)', 'ride.thanks': 'Рақмет!',
+    'tag.friendly': 'Мейірімді', 'tag.clean': 'Таза көлік', 'tag.safe': 'Қауіпсіз жүргізу', 'tag.ontime': 'Уақытында', 'tag.comm': 'Жақсы қарым-қатынас',
+    'pay.cash': 'Қолма-қол', 'pay.card': 'Карта', 'pay.wallet': 'Әмиян',
+    'activity.completed': 'Аяқталған', 'activity.ongoing': 'Жүріп жатқан', 'activity.cancelled': 'Бас тартылған', 'activity.empty': 'Мұнда әзірге ештеңе жоқ',
+    'wallet.balance': 'Қолжетімді баланс', 'wallet.topup': 'Толықтыру', 'wallet.amount': 'Сома, ₸', 'wallet.history': 'Операциялар', 'wallet.checkout': 'Төлем бетін ашу (тест)',
+    'profile.edit': 'Профильді өзгерту', 'profile.language': 'Тіл', 'profile.support': 'Көмек және қолдау', 'profile.delete': 'Аккаунтты жою', 'profile.deleteConfirm': 'Аккаунт пен жеке деректер жойылады. Жалғастырасыз ба?',
+    'support.new': 'Жаңа өтінім', 'support.subject': 'Тақырып', 'support.message': 'Хабарлама', 'support.empty': 'Өтінімдер жоқ', 'support.write': 'Хабарлама жазу…',
+    'loc.title': 'Орналасуды пайдалану', 'loc.body': 'JOLAY жақын жүргізушілерді табу және алып кету орнын дәл көрсету үшін орналасуыңызды пайдаланады.', 'loc.allow': 'Рұқсат беру', 'loc.manual': 'Қолмен таңдау', 'loc.denied': 'Орналасуға рұқсат берілмеген. Баптаулардан қосыңыз немесе мекенжайды қолмен таңдаңыз.',
+    'common.loading': 'Жүктелуде…', 'common.error': 'Қате орын алды', 'common.offline': 'Байланыс жоқ. Қайта көріңіз.',
+    'err.invalid_credentials': 'Телефон/email немесе құпиясөз қате', 'err.phone_taken': 'Бұл нөмір тіркелген', 'err.email_taken': 'Бұл email тіркелген', 'err.weak_password': 'Құпиясөз тым әлсіз',
+    'err.otp_invalid': 'Код қате немесе мерзімі өткен', 'err.otp_attempts_exceeded': 'Тым көп әрекет. Жаңа код сұраңыз', 'err.otp_rate_limited': 'Тым көп код сұралды. Кейінірек көріңіз', 'err.otp_too_soon': 'Жаңа кодты сәл кейін сұраңыз',
+    'err.login_locked': 'Тым көп қате әрекет. Кейінірек көріңіз', 'err.phone_not_verified': 'Телефон расталмаған', 'err.account_suspended': 'Аккаунт тоқтатылған',
+    'err.active_ride_exists': 'Сізде белсенді сапар бар', 'err.insufficient_funds': 'Әмиянда қаражат жеткіліксіз', 'err.pickup_out_of_zone': 'Алып кету орны қызмет аймағынан тыс', 'err.dropoff_out_of_zone': 'Межелі жер қызмет аймағынан тыс',
+    'err.trip_too_short': 'Сапар тым қысқа', 'err.network': 'Желі қатесі', 'err.unauthorized': 'Қайта кіріңіз', 'err.cannot_cancel': 'Қазір бас тарту мүмкін емес', 'err.driver_not_approved': 'Жүргізуші аккаунты расталмаған',
+    'err.not_at_pickup': 'Алып кету нүктесіне жеткен жоқсыз', 'err.offer_expired': 'Ұсыныс мерзімі өтті', 'err.offer_closed': 'Ұсыныс жабылды', 'err.driver_busy': 'Алдымен ағымдағы тапсырысты аяқтаңыз', 'err.plate_taken': 'Бұл нөмір тіркелген',
+    'err.internal_error': 'Сервер қатесі', 'err.validation_failed': 'Деректерді тексеріңіз',
+    'driver.online': 'Желіде', 'driver.offline': 'Желіден тыс', 'driver.goOnline': 'Желіге шығу', 'driver.goOffline': 'Желіден шығу', 'driver.pending': 'Аккаунт тексерілуде', 'driver.pendingBody': 'Құжаттарыңызды әкімші тексереді. Бекітілгеннен кейін тапсырыс ала аласыз.',
+    'driver.rejected': 'Өтінім қабылданбады', 'driver.today': 'Бүгін', 'driver.trips': 'Сапарлар', 'driver.rating': 'Рейтинг', 'driver.newOrder': 'Жаңа тапсырыс', 'driver.accept': 'Қабылдау', 'driver.decline': 'Бас тарту',
+    'driver.pickupDistance': 'Алып кетуге дейін', 'driver.expected': 'Күтілетін табыс', 'driver.enRoute': 'Жолға шығу', 'driver.imHere': 'Мен жеттім', 'driver.start': 'Сапарды бастау', 'driver.complete': 'Сапарды аяқтау',
+    'driver.gross': 'Жалпы түсім', 'driver.commission': 'Платформа комиссиясы', 'driver.net': 'Таза табыс', 'driver.week': 'Апта', 'driver.month': 'Ай',
+    'driver.regTitle': 'Көлікті тіркеу', 'driver.brand': 'Марка', 'driver.model': 'Модель', 'driver.year': 'Жылы', 'driver.color': 'Түсі', 'driver.plate': 'Мемлекеттік нөмір', 'driver.category': 'Санат',
+    'driver.docs': 'Құжаттар', 'driver.safety': 'Қауіпсіздік және қолдау', 'driver.passenger': 'Жолаушы',
+  },
+  'ru': {
+    'app.slogan': 'Твой город. Твой путь.', 'app.tag': 'Мобильность. Доставка. Каждый день.',
+    'welcome.title': 'Езжай, доставляй, двигайся вперёд.', 'welcome.body': 'Быстрые, безопасные и доступные сервисы для ваших ежедневных поездок.',
+    'welcome.s2': 'Ближайший водитель находится за секунды', 'welcome.s3': 'Цена известна заранее, оплата прозрачна',
+    'btn.start': 'Начать', 'btn.login': 'Войти', 'btn.signup': 'Зарегистрироваться', 'btn.continue': 'Продолжить', 'btn.next': 'Далее', 'btn.cancel': 'Отмена', 'btn.done': 'Готово',
+    'btn.save': 'Сохранить', 'btn.send': 'Отправить', 'btn.retry': 'Повторить', 'btn.logout': 'Выйти', 'btn.delete': 'Удалить',
+    'auth.fullName': 'Имя и фамилия', 'auth.email': 'Email (необязательно)', 'auth.phone': 'Номер телефона', 'auth.password': 'Пароль', 'auth.confirm': 'Повторите пароль',
+    'auth.phoneOrEmail': 'Телефон или email', 'auth.forgot': 'Забыли пароль?', 'auth.haveAccount': 'Уже есть аккаунт?', 'auth.noAccount': 'Нет аккаунта?',
+    'auth.terms': 'Я принимаю Условия использования и Политику конфиденциальности', 'auth.createTitle': 'Создать аккаунт', 'auth.loginTitle': 'С возвращением',
+    'auth.otpTitle': 'Подтверждение телефона', 'auth.otpBody': 'Мы отправили код на номер', 'auth.resendIn': 'Повторная отправка через', 'auth.resend': 'Отправить код ещё раз', 'auth.code': '6-значный код',
+    'auth.forgotTitle': 'Восстановление пароля', 'auth.forgotBody': 'Введите номер телефона — мы отправим код подтверждения.', 'auth.resetTitle': 'Новый пароль', 'auth.newPassword': 'Новый пароль',
+    'auth.resetDone': 'Пароль изменён. Теперь можно войти.',
+    'val.name': 'Введите имя и фамилию', 'val.email': 'Некорректный email', 'val.password': 'Минимум 8 символов, буква и цифра', 'val.confirm': 'Пароли не совпадают', 'val.phone': 'Введите номер в международном формате', 'val.terms': 'Необходимо принять условия',
+    'home.greeting': 'Привет', 'home.where': 'Куда едем?', 'home.pickup': 'Откуда', 'home.currentLocation': 'Текущее местоположение', 'home.recent': 'Недавние адреса', 'home.noRecent': 'Поездок пока нет',
+    'home.ride': 'Такси', 'home.delivery': 'Доставка', 'home.express': 'Экспресс', 'home.soon': 'Скоро', 'home.saved': 'Сохранённые адреса',
+    'nav.home': 'Главная', 'nav.activity': 'Активность', 'nav.wallet': 'Кошелёк', 'nav.profile': 'Профиль', 'nav.orders': 'Заказы', 'nav.earnings': 'Доход',
+    'ride.destination': 'Куда', 'ride.search': 'Поиск адреса или места', 'ride.chooseRide': 'Выберите поездку', 'ride.payment': 'Способ оплаты', 'ride.confirm': 'Заказать',
+    'ride.eta': 'мин', 'ride.noDrivers': 'Поблизости нет водителей', 'ride.seats': 'мест', 'ride.routeEstimated': 'Оценочный маршрут (не живая навигация)',
+    'ride.finding': 'Ищем водителя…', 'ride.findingBody': 'Запрос отправлен ближайшему водителю', 'ride.found': 'Водитель найден', 'ride.arriving': 'Водитель едет к вам', 'ride.arrived': 'Водитель приехал',
+    'ride.inProgress': 'Поездка идёт', 'ride.completed': 'Поездка завершена', 'ride.cancelled': 'Поездка отменена', 'ride.expired': 'Водитель не найден', 'ride.cancel': 'Отменить поездку',
+    'ride.cancelFee': 'При поздней отмене может взиматься комиссия', 'ride.call': 'Позвонить', 'ride.share': 'Поделиться', 'ride.sos': 'SOS', 'ride.total': 'Итого', 'ride.distance': 'Расстояние', 'ride.duration': 'Время', 'ride.km': 'км',
+    'ride.fareBreakdown': 'Состав цены', 'ride.base': 'Подача', 'ride.distanceFare': 'Расстояние', 'ride.timeFare': 'Время', 'ride.fees': 'Сервисный сбор', 'ride.pay': 'Оплатить', 'ride.paid': 'Оплачено', 'ride.paymentPending': 'Ожидается оплата', 'ride.paymentFailed': 'Оплата не прошла',
+    'ride.rate': 'Оцените водителя', 'ride.comment': 'Комментарий (необязательно)', 'ride.thanks': 'Спасибо!',
+    'tag.friendly': 'Приветливый', 'tag.clean': 'Чистая машина', 'tag.safe': 'Безопасная езда', 'tag.ontime': 'Вовремя', 'tag.comm': 'Хорошая коммуникация',
+    'pay.cash': 'Наличные', 'pay.card': 'Карта', 'pay.wallet': 'Кошелёк',
+    'activity.completed': 'Завершённые', 'activity.ongoing': 'Текущие', 'activity.cancelled': 'Отменённые', 'activity.empty': 'Здесь пока ничего нет',
+    'wallet.balance': 'Доступный баланс', 'wallet.topup': 'Пополнить', 'wallet.amount': 'Сумма, ₸', 'wallet.history': 'Операции', 'wallet.checkout': 'Открыть страницу оплаты (тест)',
+    'profile.edit': 'Изменить профиль', 'profile.language': 'Язык', 'profile.support': 'Помощь и поддержка', 'profile.delete': 'Удалить аккаунт', 'profile.deleteConfirm': 'Аккаунт и персональные данные будут удалены. Продолжить?',
+    'support.new': 'Новое обращение', 'support.subject': 'Тема', 'support.message': 'Сообщение', 'support.empty': 'Обращений нет', 'support.write': 'Напишите сообщение…',
+    'loc.title': 'Доступ к геолокации', 'loc.body': 'JOLAY использует ваше местоположение, чтобы находить ближайших водителей и точно указывать место посадки.', 'loc.allow': 'Разрешить', 'loc.manual': 'Выбрать вручную', 'loc.denied': 'Доступ к геолокации не предоставлен. Включите его в настройках или выберите адрес вручную.',
+    'common.loading': 'Загрузка…', 'common.error': 'Произошла ошибка', 'common.offline': 'Нет связи. Повторите попытку.',
+    'err.invalid_credentials': 'Неверный телефон/email или пароль', 'err.phone_taken': 'Этот номер уже зарегистрирован', 'err.email_taken': 'Этот email уже зарегистрирован', 'err.weak_password': 'Слишком простой пароль',
+    'err.otp_invalid': 'Неверный или просроченный код', 'err.otp_attempts_exceeded': 'Слишком много попыток. Запросите новый код', 'err.otp_rate_limited': 'Слишком много запросов кода. Попробуйте позже', 'err.otp_too_soon': 'Подождите перед повторным запросом',
+    'err.login_locked': 'Слишком много неудачных попыток. Попробуйте позже', 'err.phone_not_verified': 'Телефон не подтверждён', 'err.account_suspended': 'Аккаунт заблокирован',
+    'err.active_ride_exists': 'У вас уже есть активная поездка', 'err.insufficient_funds': 'Недостаточно средств в кошельке', 'err.pickup_out_of_zone': 'Точка посадки вне зоны обслуживания', 'err.dropoff_out_of_zone': 'Пункт назначения вне зоны обслуживания',
+    'err.trip_too_short': 'Слишком короткая поездка', 'err.network': 'Ошибка сети', 'err.unauthorized': 'Войдите снова', 'err.cannot_cancel': 'Сейчас отменить нельзя', 'err.driver_not_approved': 'Аккаунт водителя не подтверждён',
+    'err.not_at_pickup': 'Вы ещё не на точке посадки', 'err.offer_expired': 'Время предложения истекло', 'err.offer_closed': 'Предложение закрыто', 'err.driver_busy': 'Сначала завершите текущий заказ', 'err.plate_taken': 'Этот номер уже зарегистрирован',
+    'err.internal_error': 'Ошибка сервера', 'err.validation_failed': 'Проверьте введённые данные',
+    'driver.online': 'На линии', 'driver.offline': 'Не на линии', 'driver.goOnline': 'Выйти на линию', 'driver.goOffline': 'Уйти с линии', 'driver.pending': 'Аккаунт на проверке', 'driver.pendingBody': 'Администратор проверяет ваши документы. После подтверждения вы сможете принимать заказы.',
+    'driver.rejected': 'Заявка отклонена', 'driver.today': 'Сегодня', 'driver.trips': 'Поездки', 'driver.rating': 'Рейтинг', 'driver.newOrder': 'Новый заказ', 'driver.accept': 'Принять', 'driver.decline': 'Отклонить',
+    'driver.pickupDistance': 'До пассажира', 'driver.expected': 'Ожидаемый заработок', 'driver.enRoute': 'Выехать к пассажиру', 'driver.imHere': 'Я на месте', 'driver.start': 'Начать поездку', 'driver.complete': 'Завершить поездку',
+    'driver.gross': 'Выручка', 'driver.commission': 'Комиссия платформы', 'driver.net': 'Чистый доход', 'driver.week': 'Неделя', 'driver.month': 'Месяц',
+    'driver.regTitle': 'Регистрация автомобиля', 'driver.brand': 'Марка', 'driver.model': 'Модель', 'driver.year': 'Год', 'driver.color': 'Цвет', 'driver.plate': 'Госномер', 'driver.category': 'Категория',
+    'driver.docs': 'Документы', 'driver.safety': 'Безопасность и поддержка', 'driver.passenger': 'Пассажир',
+  },
+  'en': {
+    'app.slogan': 'Your City. Your Way.', 'app.tag': 'Mobility. Delivery. Everyday.',
+    'welcome.title': 'Ride, deliver, move forward.', 'welcome.body': 'Fast, safe and affordable services for your everyday journeys.',
+    'welcome.s2': 'A nearby driver is found in seconds', 'welcome.s3': 'See the price upfront, pay transparently',
+    'btn.start': 'Get started', 'btn.login': 'Log in', 'btn.signup': 'Sign up', 'btn.continue': 'Continue', 'btn.next': 'Next', 'btn.cancel': 'Cancel', 'btn.done': 'Done',
+    'btn.save': 'Save', 'btn.send': 'Send', 'btn.retry': 'Retry', 'btn.logout': 'Log out', 'btn.delete': 'Delete',
+    'auth.fullName': 'Full name', 'auth.email': 'Email (optional)', 'auth.phone': 'Phone number', 'auth.password': 'Password', 'auth.confirm': 'Confirm password',
+    'auth.phoneOrEmail': 'Phone or email', 'auth.forgot': 'Forgot password?', 'auth.haveAccount': 'Already have an account?', 'auth.noAccount': "Don't have an account?",
+    'auth.terms': 'I accept the Terms of Service and Privacy Policy', 'auth.createTitle': 'Create account', 'auth.loginTitle': 'Welcome back',
+    'auth.otpTitle': 'Verify your phone', 'auth.otpBody': 'We sent a code to', 'auth.resendIn': 'Resend in', 'auth.resend': 'Resend code', 'auth.code': '6-digit code',
+    'auth.forgotTitle': 'Forgot password', 'auth.forgotBody': "Enter your phone number and we'll send a verification code.", 'auth.resetTitle': 'New password', 'auth.newPassword': 'New password',
+    'auth.resetDone': 'Password changed. You can log in now.',
+    'val.name': 'Enter your full name', 'val.email': 'Invalid email', 'val.password': 'At least 8 characters with a letter and a digit', 'val.confirm': 'Passwords do not match', 'val.phone': 'Enter the number in international format', 'val.terms': 'You must accept the terms',
+    'home.greeting': 'Hello', 'home.where': 'Where are you going?', 'home.pickup': 'Pickup', 'home.currentLocation': 'Current location', 'home.recent': 'Recent destinations', 'home.noRecent': 'No trips yet',
+    'home.ride': 'Ride', 'home.delivery': 'Delivery', 'home.express': 'Express', 'home.soon': 'Soon', 'home.saved': 'Saved addresses',
+    'nav.home': 'Home', 'nav.activity': 'Activity', 'nav.wallet': 'Wallet', 'nav.profile': 'Profile', 'nav.orders': 'Orders', 'nav.earnings': 'Earnings',
+    'ride.destination': 'Destination', 'ride.search': 'Search address or place', 'ride.chooseRide': 'Choose a ride', 'ride.payment': 'Payment method', 'ride.confirm': 'Confirm ride',
+    'ride.eta': 'min', 'ride.noDrivers': 'No drivers nearby', 'ride.seats': 'seats', 'ride.routeEstimated': 'Estimated route (not live navigation)',
+    'ride.finding': 'Finding your driver…', 'ride.findingBody': 'Your request was sent to the nearest driver', 'ride.found': 'Driver found', 'ride.arriving': 'Your driver is on the way', 'ride.arrived': 'Your driver has arrived',
+    'ride.inProgress': 'Ride in progress', 'ride.completed': 'Ride completed', 'ride.cancelled': 'Ride cancelled', 'ride.expired': 'No driver found', 'ride.cancel': 'Cancel ride',
+    'ride.cancelFee': 'A late-cancellation fee may apply', 'ride.call': 'Call', 'ride.share': 'Share', 'ride.sos': 'SOS', 'ride.total': 'Total fare', 'ride.distance': 'Distance', 'ride.duration': 'Duration', 'ride.km': 'km',
+    'ride.fareBreakdown': 'Fare breakdown', 'ride.base': 'Base fare', 'ride.distanceFare': 'Distance', 'ride.timeFare': 'Time', 'ride.fees': 'Service fee', 'ride.pay': 'Pay now', 'ride.paid': 'Paid', 'ride.paymentPending': 'Payment pending', 'ride.paymentFailed': 'Payment failed',
+    'ride.rate': 'Rate your driver', 'ride.comment': 'Comment (optional)', 'ride.thanks': 'Thank you!',
+    'tag.friendly': 'Friendly driver', 'tag.clean': 'Clean vehicle', 'tag.safe': 'Safe driving', 'tag.ontime': 'On time', 'tag.comm': 'Good communication',
+    'pay.cash': 'Cash', 'pay.card': 'Card', 'pay.wallet': 'Wallet',
+    'activity.completed': 'Completed', 'activity.ongoing': 'Ongoing', 'activity.cancelled': 'Cancelled', 'activity.empty': 'Nothing here yet',
+    'wallet.balance': 'Available balance', 'wallet.topup': 'Add money', 'wallet.amount': 'Amount, ₸', 'wallet.history': 'Transactions', 'wallet.checkout': 'Open checkout (sandbox)',
+    'profile.edit': 'Edit profile', 'profile.language': 'Language', 'profile.support': 'Help & support', 'profile.delete': 'Delete account', 'profile.deleteConfirm': 'Your account and personal data will be deleted. Continue?',
+    'support.new': 'New request', 'support.subject': 'Subject', 'support.message': 'Message', 'support.empty': 'No requests', 'support.write': 'Write a message…',
+    'loc.title': 'Allow location access', 'loc.body': 'JOLAY uses your location to find nearby drivers and set an accurate pickup point.', 'loc.allow': 'Allow access', 'loc.manual': 'Choose manually', 'loc.denied': 'Location access is off. Enable it in settings or pick an address manually.',
+    'common.loading': 'Loading…', 'common.error': 'Something went wrong', 'common.offline': 'No connection. Please try again.',
+    'err.invalid_credentials': 'Wrong phone/email or password', 'err.phone_taken': 'This phone is already registered', 'err.email_taken': 'This email is already registered', 'err.weak_password': 'Password is too weak',
+    'err.otp_invalid': 'Invalid or expired code', 'err.otp_attempts_exceeded': 'Too many attempts. Request a new code', 'err.otp_rate_limited': 'Too many codes requested. Try later', 'err.otp_too_soon': 'Please wait before requesting another code',
+    'err.login_locked': 'Too many failed attempts. Try again later', 'err.phone_not_verified': 'Phone number is not verified', 'err.account_suspended': 'Account is suspended',
+    'err.active_ride_exists': 'You already have an active ride', 'err.insufficient_funds': 'Insufficient wallet balance', 'err.pickup_out_of_zone': 'Pickup is outside the service area', 'err.dropoff_out_of_zone': 'Destination is outside the service area',
+    'err.trip_too_short': 'Trip is too short', 'err.network': 'Network error', 'err.unauthorized': 'Please log in again', 'err.cannot_cancel': 'Cannot cancel right now', 'err.driver_not_approved': 'Driver account is not approved',
+    'err.not_at_pickup': "You're not at the pickup point yet", 'err.offer_expired': 'The offer has expired', 'err.offer_closed': 'The offer is closed', 'err.driver_busy': 'Finish your current order first', 'err.plate_taken': 'This plate is already registered',
+    'err.internal_error': 'Server error', 'err.validation_failed': 'Please check your input',
+    'driver.online': 'Online', 'driver.offline': 'Offline', 'driver.goOnline': 'Go online', 'driver.goOffline': 'Go offline', 'driver.pending': 'Account under review', 'driver.pendingBody': 'An administrator is reviewing your documents. You can take orders once approved.',
+    'driver.rejected': 'Application rejected', 'driver.today': 'Today', 'driver.trips': 'Trips', 'driver.rating': 'Rating', 'driver.newOrder': 'New order', 'driver.accept': 'Accept', 'driver.decline': 'Decline',
+    'driver.pickupDistance': 'Pickup distance', 'driver.expected': 'Expected earnings', 'driver.enRoute': 'Start driving to pickup', 'driver.imHere': "I've arrived", 'driver.start': 'Start trip', 'driver.complete': 'Complete trip',
+    'driver.gross': 'Gross revenue', 'driver.commission': 'Platform commission', 'driver.net': 'Net earnings', 'driver.week': 'Week', 'driver.month': 'Month',
+    'driver.regTitle': 'Register your vehicle', 'driver.brand': 'Brand', 'driver.model': 'Model', 'driver.year': 'Year', 'driver.color': 'Color', 'driver.plate': 'Plate number', 'driver.category': 'Category',
+    'driver.docs': 'Documents', 'driver.safety': 'Safety & support', 'driver.passenger': 'Passenger',
+  },
+};
+
+/// Looks up [key] in [locale]; falls back to English, then to the key itself.
+String tr(Locale locale, String key) => _s[locale.languageCode]?[key] ?? _s['en']![key] ?? key;
+
+/// Every key available in a locale (used by tests to guarantee kk/ru/en parity).
+Set<String> stringKeys(String lang) => _s[lang]!.keys.toSet();
+
+class LocaleController extends Notifier<Locale> {
+  static const _k = 'jolay.locale';
+  @override
+  Locale build() {
+    _load();
+    return const Locale('kk'); // default: Kazakh
+  }
+
+  Future<void> _load() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final v = p.getString(_k);
+      if (v != null && ['kk', 'ru', 'en'].contains(v)) state = Locale(v);
+    } catch (_) {/* storage unavailable: keep default */}
+  }
+
+  Future<void> set(Locale l) async {
+    state = l;
+    try { (await SharedPreferences.getInstance()).setString(_k, l.languageCode); } catch (_) {}
+  }
+}
+
+final localeProvider = NotifierProvider<LocaleController, Locale>(LocaleController.new);
+
+/// `context.t('key')` — watches the locale so UI rebuilds on language change.
+extension TrX on WidgetRef {
+  String t(String key) => tr(watch(localeProvider), key);
+}
+
+/// Localized message for an API error code, falling back to a generic one.
+String errorText(Locale l, String code) {
+  final k = 'err.$code';
+  final v = tr(l, k);
+  return v == k ? tr(l, 'common.error') : v;
+}

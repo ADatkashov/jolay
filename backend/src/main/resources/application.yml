@@ -1,0 +1,58 @@
+spring:
+  application.name: jolay-backend
+  datasource:
+    url: ${JOLAY_DB_URL:jdbc:postgresql://localhost:5432/jolay}
+    username: ${JOLAY_DB_USER:jolay}
+    password: ${JOLAY_DB_PASSWORD:jolay}
+    hikari:
+      maximum-pool-size: ${JOLAY_DB_POOL:20}
+      # Audit finding: PostgreSQL's default jit=on added ~2.7 s of compile time to a 19 ms PostGIS query
+      connection-init-sql: SET jit = off
+  flyway.enabled: true
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+  servlet.multipart.max-file-size: 5MB
+  servlet.multipart.max-request-size: 6MB
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints.web.exposure.include: health,info,prometheus,metrics
+  endpoint.health.probes.enabled: true
+  endpoint.health.show-details: never
+
+springdoc:
+  api-docs.path: /api/v1/docs
+  swagger-ui.path: /api/v1/swagger-ui
+
+jolay:
+  security:
+    # MUST be overridden in every non-local environment (>= 32 bytes). See docs/SECURITY.md.
+    jwt-secret: ${JOLAY_JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}
+    access-ttl: PT15M
+    refresh-ttl: P30D
+    cors-origins: ${JOLAY_CORS_ORIGINS:http://localhost:5173,http://localhost:5174}
+    otp-length: 6
+    otp-ttl: PT5M
+    otp-max-attempts: 5
+    otp-max-per-hour: 5
+    login-max-failures: 5
+    login-lockout: PT15M
+  sms:
+    provider: ${JOLAY_SMS_PROVIDER:log}      # log | (add provider adapter)
+    log-code: ${JOLAY_SMS_LOG_CODE:false}    # development only: write OTP to log
+  payments:
+    provider: ${JOLAY_PAYMENT_PROVIDER:sandbox}
+    sandbox-webhook-secret: ${JOLAY_SANDBOX_WEBHOOK_SECRET:dev-sandbox-secret}
+    public-base-url: ${JOLAY_PUBLIC_URL:http://localhost:8080}
+  storage:
+    documents-dir: ${JOLAY_DOCS_DIR:./data/documents}
+  dispatch:
+    scheduler-delay-ms: 2000
+  admin-bootstrap:
+    phone: ${JOLAY_ADMIN_PHONE:}
+    password: ${JOLAY_ADMIN_PASSWORD:}
+    name: ${JOLAY_ADMIN_NAME:JOLAY Admin}

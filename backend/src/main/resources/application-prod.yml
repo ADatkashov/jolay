@@ -1,0 +1,10 @@
+logging.structured.format.console: ecs
+server.forward-headers-strategy: framework     # real client IP behind the ingress (rate limiting); only enable behind a trusted proxy
+springdoc:
+  api-docs.enabled: false
+  swagger-ui.enabled: false
+management:
+  server.port: ${JOLAY_MGMT_PORT:8081}          # /actuator/* (incl. prometheus) is served here; do NOT expose this port publicly
+  endpoints.web.exposure.include: health,info,prometheus
+jolay:
+  sms.log-code: false
