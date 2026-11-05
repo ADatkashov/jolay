@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Auth, Portal } from "./App";
 import Orders from "./pages/Orders";
 import Stores from "./pages/Stores";
+import Reports from "./pages/Reports";
 
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
 const session = { accessToken: "t", refreshToken: "r", user: { id: "1", fullName: "Dana", roles: ["PARTNER"] } };
@@ -100,5 +101,27 @@ describe("stores page", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async () => json([]));
     render(<Stores approved />);
     expect(await screen.findByText("Add store")).toBeEnabled();
+  });
+});
+
+describe("payouts", () => {
+  it("requests a payout with the entered amount and account and shows the history", async () => {
+    sessionStorage.setItem("jolay.partner.session", JSON.stringify(session));
+    const posted: unknown[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      const u = String(url);
+      if (init?.method === "POST" && u.endsWith("/partner/payouts")) { posted.push(JSON.parse(init.body as string)); return json({ id: "p1", status: "REQUESTED" }, 201); }
+      if (u.includes("/partner/payouts")) return json([{ id: "p0", amount: "3000.00", status: "PAID", destination: "****1234", reference: "BANK-1", created_at: "2026-11-04T10:00:00Z" }]);
+      if (u.endsWith("/wallet")) return json({ balance: "5000.00" });
+      if (u.includes("/wallet/transactions")) return json([]);
+      return json({ orders: 0, gross: "0", commission: "0", net: "0", openOrders: 0, topProducts: [] });
+    });
+    render(<Reports />);
+    expect(await screen.findByText("BANK-1")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Amount (KZT)"), { target: { value: "4000" } });
+    fireEvent.change(screen.getByLabelText("Bank account (IBAN)"), { target: { value: "KZ12345678901234" } });
+    fireEvent.click(screen.getByText("Request payout"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Payout requested"));
+    expect(posted).toEqual([{ amount: 4000, destination: "KZ12345678901234" }]);
   });
 });

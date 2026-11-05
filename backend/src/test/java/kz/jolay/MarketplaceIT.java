@@ -214,6 +214,43 @@ class MarketplaceIT extends IntegrationTestBase {
     }
 
     @Test
+    void partnerPayoutsHoldReleaseAndPayThroughTheLedger() {
+        Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);
+        Session c = customer(); topUp(c, 10000); Session k = courier();
+        String id = post("/api/v1/store-orders", c.token(), order(s, dish, "2")).s("id");
+        post("/api/v1/partner/orders/" + id + "/accept", p.token(), null);
+        post("/api/v1/partner/orders/" + id + "/ready", p.token(), null);
+        Resp view = get("/api/v1/store-orders/" + id, c.token());
+        String deliveryId = view.body().path("delivery").path("id").asText(), code = view.body().path("delivery").path("handoverCode").asText();
+        post("/api/v1/drivers/delivery-offers/" + get("/api/v1/drivers/delivery-offers", k.token()).s("offer_id") + "/accept", k.token(), null);
+        at(k, STORE[0], STORE[1]); post("/api/v1/drivers/deliveries/" + deliveryId + "/picked-up", k.token(), null);
+        at(k, HOME[0], HOME[1]); post("/api/v1/drivers/deliveries/" + deliveryId + "/deliver", k.token(), Map.of("code", code));
+        BigDecimal earned = balance(p);
+        assertTrue(earned.signum() > 0);
+        assertEquals(200, put("/api/v1/admin/settings/payouts.min_amount", admin("SUPER_ADMIN").token(), Map.of("value", "1000")).status());
+
+        assertEquals("payout_below_minimum", post("/api/v1/partner/payouts", p.token(), Map.of("amount", 100, "destination", "KZ12345678901234")).s("code"));
+        assertEquals(403, post("/api/v1/drivers/payouts", p.token(), Map.of("amount", 1000, "destination", "KZ12345678901234")).status(), "a partner cannot use the driver endpoint");
+        assertEquals("insufficient_funds", post("/api/v1/partner/payouts", p.token(), Map.of("amount", earned.add(BigDecimal.ONE), "destination", "KZ12345678901234")).s("code"));
+
+        Resp r = post("/api/v1/partner/payouts", p.token(), Map.of("amount", earned, "destination", "KZ12345678901234"));
+        assertEquals(201, r.status());
+        assertEquals(0, balance(p).signum(), "funds are held at request time");
+        assertEquals("payout_already_requested", post("/api/v1/partner/payouts", p.token(), Map.of("amount", 5000, "destination", "KZ12345678901234")).s("code"));
+        Session fin = admin("FINANCE_ADMIN");
+        assertEquals(1, get("/api/v1/admin/payouts?status=REQUESTED", fin.token()).body().size());
+
+        assertEquals(200, post("/api/v1/admin/payouts/" + r.s("id") + "/reject", fin.token(), Map.of("reason", "IBAN mismatch")).status());
+        assertEquals(0, balance(p).compareTo(earned), "rejection releases the money back to the PARTNER wallet");
+        Resp r2 = post("/api/v1/partner/payouts", p.token(), Map.of("amount", earned, "destination", "KZ12345678901234"));
+        assertEquals(200, post("/api/v1/admin/payouts/" + r2.s("id") + "/pay", fin.token(), Map.of("reference", "BANK-REF-1")).status());
+        assertEquals(0, balance(p).signum());
+        assertEquals(2, get("/api/v1/partner/payouts", p.token()).body().size());
+        assertEquals(0, get("/api/v1/drivers/payouts", k.token()).body().size(), "driver history does not show partner payouts");
+        assertLedgerBalanced(); assertRecon();
+    }
+
+    @Test
     void noCourierFoundRefundsTheCustomerAndFailsTheOrder() {
         Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);
         Session c = customer(); topUp(c, 10000);

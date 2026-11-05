@@ -31,3 +31,5 @@ Differences from the initial brief: `PUT /drivers/availability` takes `{online}`
 Customer: `GET /stores?lat&lng&category`, `GET /stores/{id}/menu`, `POST /store-orders/estimate` (no money moves), `POST /store-orders` (requires `Idempotency-Key`; pays from wallet into escrow), `GET /store-orders[?tab=ongoing]`, `GET /store-orders/{id}`, `POST /store-orders/{id}/cancel` (only while PLACED).
 Partner (`ROLE_PARTNER`): `POST /partner/register`, `GET /partner/me`, stores and products CRUD under `/partner/stores…`, `POST /partner/orders/{id}/accept|reject|ready`, `GET /partner/reports/sales`.
 Admin: `GET /admin/partners`, `POST /admin/partners/{id}/status`, `GET /admin/store-orders`.
+
+Partner payouts (V9): `POST /partner/payouts` (amount, destination; holds PARTNER_WALLET funds), `GET /partner/payouts`. Finance pays/rejects through the same `/admin/payouts/{id}/pay|reject` endpoints as driver payouts; `GET /admin/payouts` returns `wallet_type`.

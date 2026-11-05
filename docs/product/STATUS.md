@@ -17,7 +17,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Ledger (double entry, append-only, idempotent, DB-enforced immutability) | ✅ | |
 | Wallet top-up, wallet/cash/card ride settlement, refunds | ✅ | against the **sandbox** gateway 🧪 |
 | Payment webhooks: HMAC verification, dedupe, amount check | ✅ | real providers (Kaspi / FreedomPay) ⛔ — need merchant contracts |
-| Driver payouts (hold → paid/rejected through the ledger), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
+| Driver and partner payouts (hold → paid/rejected through the ledger; V9), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
 | Ratings, support tickets/chat (REST + notification event), notifications (dedupe), audit log | ✅ | |
 | WebSocket events with reconnect hints | 🟡 | event delivery after commit; no WS integration test |
 | Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |

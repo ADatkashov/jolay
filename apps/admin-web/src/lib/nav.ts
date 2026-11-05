@@ -15,7 +15,7 @@ export const NAV: NavItem[] = [
   { id: "incidents", label: "Incidents & SOS", roles: ["SUPER_ADMIN", "OPERATIONS_ADMIN", "SUPPORT_AGENT"] },
   { id: "risk", label: "Risk flags", roles: ["SUPER_ADMIN", "OPERATIONS_ADMIN", "FINANCE_ADMIN"] },
   { id: "payments", label: "Payments & Refunds", roles: ["SUPER_ADMIN", "FINANCE_ADMIN"] },
-  { id: "payouts", label: "Driver payouts", roles: ["SUPER_ADMIN", "FINANCE_ADMIN"] },
+  { id: "payouts", label: "Payouts", roles: ["SUPER_ADMIN", "FINANCE_ADMIN"] },
   { id: "pricing", label: "Pricing", roles: ALL },
   { id: "support", label: "Support", roles: ALL },
   { id: "legal", label: "Legal documents", roles: ["SUPER_ADMIN"] },
