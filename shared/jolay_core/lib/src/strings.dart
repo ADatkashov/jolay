@@ -8,6 +8,13 @@ const supportedLocales = [Locale('kk'), Locale('ru'), Locale('en')];
 /// Backend error codes map to `err.<code>`.
 const Map<String, Map<String, String>> _s = {
   'kk': {
+    'delivery.collectCash': 'Клиенттен қолма-қол алыңыз',
+    'shop.payWith': 'Төлем тәсілі',
+    'shop.payWallet': 'Әмиян',
+    'shop.payCash': 'Жеткізгенде қолма-қол',
+    'shop.cashNote': 'Курьерге жеткізу кезінде төлейсіз. Үлкен тапсырыстарға шектеу бар.',
+    'err.cash_limit_exceeded': 'Тапсырыс қолма-қол төлеу үшін тым үлкен. Әмиянмен төлеңіз',
+    'err.too_many_cash_orders': 'Алдымен ашық қолма-қол тапсырыстарыңызды аяқтаңыз',
     'shop.title': 'Дүкендер мен тағам',
     'shop.nearby': 'Жақын жерде',
     'shop.none': 'Жақын жерде ашық дүкен жоқ',
@@ -161,6 +168,13 @@ const Map<String, Map<String, String>> _s = {
     'driver.docs': 'Құжаттар', 'driver.safety': 'Қауіпсіздік және қолдау', 'driver.passenger': 'Жолаушы',
   },
   'ru': {
+    'delivery.collectCash': 'Получите наличными от клиента',
+    'shop.payWith': 'Способ оплаты',
+    'shop.payWallet': 'Кошелёк',
+    'shop.payCash': 'Наличными при получении',
+    'shop.cashNote': 'Вы платите курьеру при доставке. Для крупных заказов есть лимит.',
+    'err.cash_limit_exceeded': 'Заказ слишком большой для оплаты наличными. Оплатите с кошелька',
+    'err.too_many_cash_orders': 'Сначала завершите открытые заказы с оплатой наличными',
     'shop.title': 'Магазины и еда',
     'shop.nearby': 'Рядом с вами',
     'shop.none': 'Поблизости нет открытых магазинов',
@@ -314,6 +328,13 @@ const Map<String, Map<String, String>> _s = {
     'driver.docs': 'Документы', 'driver.safety': 'Безопасность и поддержка', 'driver.passenger': 'Пассажир',
   },
   'en': {
+    'delivery.collectCash': 'Collect cash from the customer',
+    'shop.payWith': 'Payment',
+    'shop.payWallet': 'Wallet',
+    'shop.payCash': 'Cash on delivery',
+    'shop.cashNote': 'You pay the courier on delivery. Large orders have a limit.',
+    'err.cash_limit_exceeded': 'This order is too large to pay in cash. Pay from your wallet',
+    'err.too_many_cash_orders': 'Finish your open cash orders first',
     'shop.title': 'Shops & food',
     'shop.nearby': 'Near you',
     'shop.none': 'No open shops nearby',

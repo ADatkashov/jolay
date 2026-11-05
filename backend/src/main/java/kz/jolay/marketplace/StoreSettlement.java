@@ -54,6 +54,26 @@ public class StoreSettlement {
         notifier.notify(partnerUser, "STORE_ORDER_STATUS", "store-order-" + orderId + "-completed-p", Map.of("orderId", orderId.toString(), "status", "COMPLETED"));
     }
 
+    /** Cash on delivery: the courier collected the whole total from the customer; they keep their earnings and owe the rest, which is split between partner and platform. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void settleDeliveredCash(UUID orderId, UUID courierId) {
+        var o = jdbc.sql("SELECT customer_id, partner_id, items_total, delivery_fee, partner_commission, delivery_courier_earnings, delivery_platform_cut, status FROM store_orders WHERE id=:id FOR UPDATE").param("id", orderId).query().listOfRows().get(0);
+        if ("COMPLETED".equals(o.get("status"))) return;
+        BigDecimal total = ((BigDecimal) o.get("items_total")).add((BigDecimal) o.get("delivery_fee"));
+        BigDecimal earnings = (BigDecimal) o.get("delivery_courier_earnings");
+        BigDecimal toPartner = ((BigDecimal) o.get("items_total")).subtract((BigDecimal) o.get("partner_commission"));
+        BigDecimal toPlatform = ((BigDecimal) o.get("partner_commission")).add((BigDecimal) o.get("delivery_platform_cut"));
+        UUID partnerUser = jdbc.sql("SELECT owner_id FROM partners WHERE id=:p").param("p", o.get("partner_id")).query(UUID.class).single();
+        List<Leg> legs = new ArrayList<>();
+        legs.add(new Leg(ledger.userAccount(courierId, "DRIVER_WALLET"), total.subtract(earnings).negate()));
+        if (toPartner.signum() > 0) legs.add(new Leg(ledger.userAccount(partnerUser, "PARTNER_WALLET"), toPartner));
+        if (toPlatform.signum() > 0) legs.add(new Leg(ledger.systemAccount("PLATFORM_REVENUE"), toPlatform));
+        ledger.post("ORDER_SETTLEMENT", "STORE_ORDER", orderId, "order-settle-" + orderId, "Store order settled (cash collected by courier)", legs);
+        jdbc.sql("UPDATE store_orders SET status='COMPLETED', completed_at=now(), updated_at=now() WHERE id=:id").param("id", orderId).update();
+        notifier.notify((UUID) o.get("customer_id"), "STORE_ORDER_STATUS", "store-order-" + orderId + "-completed", Map.of("orderId", orderId.toString(), "status", "COMPLETED"));
+        notifier.notify(partnerUser, "STORE_ORDER_STATUS", "store-order-" + orderId + "-completed-p", Map.of("orderId", orderId.toString(), "status", "COMPLETED"));
+    }
+
     /** Refunds the customer in full and closes the order as REJECTED / CANCELLED / FAILED. No-op if it is already closed. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void refundAndClose(UUID orderId, String finalStatus, String reason) {
@@ -61,7 +81,8 @@ public class StoreSettlement {
         String st = (String) o.get("status");
         if (st.equals("COMPLETED") || st.equals("REJECTED") || st.equals("CANCELLED") || st.equals("FAILED")) return;
         BigDecimal total = ((BigDecimal) o.get("items_total")).add((BigDecimal) o.get("delivery_fee"));
-        ledger.post("ORDER_REFUND", "STORE_ORDER", orderId, "order-refund-" + orderId, "Store order refunded: " + finalStatus,
+        boolean held = jdbc.sql("SELECT escrow_tx IS NOT NULL FROM store_orders WHERE id=:id").param("id", orderId).query(Boolean.class).single();   // cash orders never held anything
+        if (held) ledger.post("ORDER_REFUND", "STORE_ORDER", orderId, "order-refund-" + orderId, "Store order refunded: " + finalStatus,
                 List.of(new Leg(ledger.systemAccount("ORDER_ESCROW"), total.negate()), new Leg(ledger.userAccount((UUID) o.get("customer_id"), "CUSTOMER_WALLET"), total)));
         jdbc.sql("UPDATE store_orders SET status=:s, reject_reason=:r, updated_at=now() WHERE id=:id").param("s", finalStatus).param("r", reason).param("id", orderId).update();
         UUID partnerUser = jdbc.sql("SELECT owner_id FROM partners WHERE id=:p").param("p", o.get("partner_id")).query(UUID.class).single();

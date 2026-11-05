@@ -163,6 +163,7 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController(), _phone = TextEditingController(), _note = TextEditingController();
   Place? _address;
+  String _pay = 'WALLET';
   Map<String, dynamic>? _quote;
   bool _busy = false, _quoting = false;
   late final String _idem = 'shop-${DateTime.now().microsecondsSinceEpoch}';
@@ -181,7 +182,7 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
     return {
       'storeId': cart.storeId, 'items': [for (final l in cart.lines) {'productId': l.productId, 'quantity': l.qty}],
       'dropoff': {'lat': _address!.lat, 'lng': _address!.lng}, 'address': _address!.address.isNotEmpty ? _address!.address : _address!.name,
-      'recipientName': _name.text.trim(), 'recipientPhone': _phone.text.trim().isEmpty ? '+7' : Validators.phone(_phone.text) == null ? Validators.normalizePhone(_phone.text) : _phone.text.trim(), if (_note.text.trim().isNotEmpty) 'note': _note.text.trim(),
+      'recipientName': _name.text.trim(), 'recipientPhone': _phone.text.trim().isEmpty ? '+7' : Validators.phone(_phone.text) == null ? Validators.normalizePhone(_phone.text) : _phone.text.trim(), if (_note.text.trim().isNotEmpty) 'note': _note.text.trim(), 'paymentMethod': _pay,
     };
   }
 
@@ -226,8 +227,10 @@ class _CheckoutState extends ConsumerState<CheckoutScreen> {
           Row(children: [Expanded(child: Text(ref.t('shop.total'), style: const TextStyle(fontWeight: FontWeight.w800))), Text(formatKzt(_quote!['total']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22))]),
         ])),
         const SizedBox(height: 8),
-        Text(ref.t('shop.walletOnly'), style: const TextStyle(fontSize: 12, color: JolayColors.textSecondary)),
-        Text(ref.t('shop.refundNote'), style: const TextStyle(fontSize: 12, color: JolayColors.textSecondary)),
+        Text(ref.t('shop.payWith'), style: const TextStyle(fontWeight: FontWeight.w700)),
+        Wrap(spacing: 8, children: [for (final m in const ['WALLET', 'CASH']) ChoiceChip(key: Key('pay-$m'), label: Text(ref.t(m == 'CASH' ? 'shop.payCash' : 'shop.payWallet')), selected: _pay == m, selectedColor: JolayColors.yellow, onSelected: (_) => setState(() => _pay = m))]),
+        Text(ref.t(_pay == 'CASH' ? 'shop.cashNote' : 'shop.walletOnly'), style: const TextStyle(fontSize: 12, color: JolayColors.textSecondary)),
+        if (_pay == 'WALLET') Text(ref.t('shop.refundNote'), style: const TextStyle(fontSize: 12, color: JolayColors.textSecondary)),
         const SizedBox(height: 16),
         JolayButton(key: const Key('place-order'), label: ref.t('shop.place'), busy: _busy, onPressed: _quote == null ? null : _place),
       ])),

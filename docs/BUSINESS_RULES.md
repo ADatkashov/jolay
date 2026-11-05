@@ -36,6 +36,8 @@
 | 31 | On hand-over: escrow → partner wallet (items − commission), courier wallet (delivery share), platform (commission + delivery cut) | `StoreSettlement.settleDelivered` |
 | 32 | Store reject / cancel while PLACED / no courier found → full refund from escrow | `StoreSettlement.refundAndClose` |
 | 33 | Prices are snapshots at order time; the server recomputes everything, the client price is never trusted; max 30 lines, one store per order, distance limit from settings | `StoreOrderService.price` |
+| 34 | Store order paid in cash on delivery: nothing is held; the courier collects the total, keeps their earnings and owes the rest (wallet debit), partner and platform are credited at hand-over | `StoreSettlement.settleDeliveredCash` |
+| 35 | Cash store orders are capped per order (`marketplace.cash_max_total`, 20 000 ₸) and per customer (`marketplace.cash_max_open`, 2 open at once); reject/cancel of a cash order moves no money | `StoreOrderService.place` |
 
 Customer cancellation fee and free window, commission, base/km/minute/minimum fares, demand multiplier, dispatch radii/timeouts are all configurable (Admin → Pricing / Settings).
 **Rules not yet implemented:** promo codes, peak-hour/surge automation, scheduled rides, delivery rules.

@@ -25,7 +25,8 @@ public class StoreController {
 
     public record LineDto(@NotNull UUID productId, @Min(1) @Max(50) int quantity) {}
     public record PlaceRequest(@NotNull UUID storeId, @NotEmpty @Size(max = 30) List<@Valid LineDto> items, @NotNull @Valid GeoPoint dropoff, @Size(max = 300) String address,
-                               @NotBlank @Size(min = 2, max = 120) String recipientName, @NotBlank String recipientPhone, @Size(max = 300) String note) {}
+                               @NotBlank @Size(min = 2, max = 120) String recipientName, @NotBlank String recipientPhone, @Size(max = 300) String note,
+                               @Pattern(regexp = "WALLET|CASH") String paymentMethod) {}
 
     @GetMapping("/stores")
     public List<Map<String, Object>> nearby(@RequestParam double lat, @RequestParam double lng, @RequestParam(required = false) String category) {
@@ -53,7 +54,7 @@ public class StoreController {
 
     @PostMapping("/store-orders") @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> place(@Valid @RequestBody PlaceRequest r, @RequestHeader(value = "Idempotency-Key", required = false) String key) {
-        return orders.place(Auth.id(), r.storeId(), r.items().stream().map(l -> new StoreOrderService.Line(l.productId(), l.quantity())).toList(), r.dropoff(), r.address(), r.recipientName(), r.recipientPhone(), r.note(), key);
+        return orders.place(Auth.id(), r.storeId(), r.items().stream().map(l -> new StoreOrderService.Line(l.productId(), l.quantity())).toList(), r.dropoff(), r.address(), r.recipientName(), r.recipientPhone(), r.note(), key, r.paymentMethod());
     }
 
     @GetMapping("/store-orders")

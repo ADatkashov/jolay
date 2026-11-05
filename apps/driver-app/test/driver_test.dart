@@ -99,4 +99,17 @@ void main() {
     await t.pump();
     expect(api.calls, contains('PUT /drivers/delivery'));
   });
+
+  testWidgets('a store order paid in cash tells the courier how much to collect; prepaid ones show nothing', (t) async {
+    t.view.physicalSize = const Size(800, 2400); t.view.devicePixelRatio = 1.0; addTearDown(t.view.reset);
+    Map<String, dynamic> d({String? cash}) => {'id': 'd1', 'trackingNumber': 'JLABCD2345', 'status': 'COURIER_ASSIGNED', 'pickupAddress': 'Nan Bistro', 'dropoffAddress': 'Home', 'senderName': 'Nan Bistro', 'recipientName': 'Aidar',
+        'parcelDescription': 'Order S1', 'weightKg': 3.0, 'courierEarnings': '720.00', 'pickup': {'lat': 43.23, 'lng': 76.95}, 'dropoff': {'lat': 43.2, 'lng': 76.9}, 'cashToCollect': ?cash};
+    await t.pumpWidget(app(Scaffold(body: ActiveDeliveryCard(delivery: d(cash: '5900.00'), busy: false, onAct: (_) async {}, onRefresh: () async {})), FakeApi({})));
+    await t.pump();
+    expect(find.byKey(const Key('cash-to-collect')), findsOneWidget);
+    expect(find.text('Collect cash from the customer'), findsOneWidget);
+    await t.pumpWidget(app(Scaffold(body: ActiveDeliveryCard(delivery: d(), busy: false, onAct: (_) async {}, onRefresh: () async {})), FakeApi({})));
+    await t.pump();
+    expect(find.byKey(const Key('cash-to-collect')), findsNothing);
+  });
 }

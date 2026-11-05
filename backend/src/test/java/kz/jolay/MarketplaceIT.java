@@ -250,6 +250,61 @@ class MarketplaceIT extends IntegrationTestBase {
         assertLedgerBalanced(); assertRecon();
     }
 
+    private Map<String, Object> cashOrder(String store, String product, String qty) {
+        Map<String, Object> o = new java.util.LinkedHashMap<>(order(store, product, qty));
+        o.put("paymentMethod", "CASH");
+        return o;
+    }
+
+    @Test
+    void cashOnDeliveryHoldsNothingAndSettlesThroughTheCourierWallet() {
+        Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);
+        Session c = customer(); Session k = courier();      // the customer's wallet is empty: cash needs no balance
+        Resp placed = post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "2"));
+        assertEquals(201, placed.status());
+        assertEquals("CASH", placed.s("paymentMethod"));
+        String id = placed.s("id"); BigDecimal total = new BigDecimal(placed.s("total"));
+        assertEquals(0, escrow().signum(), "no money is held for a cash order");
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM ledger_transactions WHERE tx_type IN ('ORDER_ESCROW','ORDER_REFUND')").query(Integer.class).single());
+
+        post("/api/v1/partner/orders/" + id + "/accept", p.token(), null);
+        post("/api/v1/partner/orders/" + id + "/ready", p.token(), null);
+        Resp view = get("/api/v1/store-orders/" + id, c.token());
+        String deliveryId = view.body().path("delivery").path("id").asText(), code = view.body().path("delivery").path("handoverCode").asText();
+        assertEquals("STORE_CASH", jdbc.sql("SELECT payment_method FROM delivery_orders WHERE id=:i::uuid").param("i", deliveryId).query(String.class).single());
+        String offer = get("/api/v1/drivers/delivery-offers", k.token()).s("offer_id");
+        post("/api/v1/drivers/delivery-offers/" + offer + "/accept", k.token(), null);
+        assertEquals(0, new BigDecimal(get("/api/v1/drivers/deliveries/active", k.token()).s("cashToCollect")).compareTo(total), "the courier is told how much cash to collect");
+        assertNull(get("/api/v1/deliveries/" + deliveryId, c.token()).body().get("cashToCollect"));
+        at(k, STORE[0], STORE[1]); post("/api/v1/drivers/deliveries/" + deliveryId + "/picked-up", k.token(), null);
+        at(k, HOME[0], HOME[1]); assertEquals(200, post("/api/v1/drivers/deliveries/" + deliveryId + "/deliver", k.token(), Map.of("code", code)).status());
+
+        BigDecimal commission = jdbc.sql("SELECT partner_commission FROM store_orders WHERE id=:i::uuid").param("i", id).query(BigDecimal.class).single();
+        BigDecimal earn = jdbc.sql("SELECT delivery_courier_earnings FROM store_orders WHERE id=:i::uuid").param("i", id).query(BigDecimal.class).single();
+        BigDecimal cut = jdbc.sql("SELECT delivery_platform_cut FROM store_orders WHERE id=:i::uuid").param("i", id).query(BigDecimal.class).single();
+        assertEquals("COMPLETED", get("/api/v1/store-orders/" + id, c.token()).s("status"));
+        assertEquals(0, balance(p).compareTo(new BigDecimal("5000").subtract(commission)));
+        assertEquals(0, balance(k).compareTo(total.subtract(earn).negate()), "the courier owes everything they collected beyond their own earnings");
+        assertEquals(0, jdbc.sql("SELECT balance FROM accounts WHERE type='PLATFORM_REVENUE'").query(BigDecimal.class).single().compareTo(commission.add(cut)));
+        assertEquals(0, balance(c).signum(), "the customer's wallet was never touched");
+        assertLedgerBalanced(); assertRecon();
+    }
+
+    @Test
+    void cashOrdersAreLimitedAndRejectionMovesNoMoney() {
+        Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);
+        Session c = customer();
+        assertEquals("cash_limit_exceeded", post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "10")).s("code"));
+        String a = post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "1")).s("id");
+        assertEquals(201, post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "1")).status());
+        assertEquals("too_many_cash_orders", post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "1")).s("code"));
+        assertEquals(200, post("/api/v1/partner/orders/" + a + "/reject", p.token(), Map.of("reason", "closed")).status());
+        assertEquals("REJECTED", get("/api/v1/store-orders/" + a, c.token()).s("status"));
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM ledger_transactions WHERE tx_type IN ('ORDER_ESCROW','ORDER_REFUND')").query(Integer.class).single());
+        assertEquals(0, balance(c).signum());
+        assertEquals(201, post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "1")).status(), "a slot is free again after the rejection");
+    }
+
     @Test
     void noCourierFoundRefundsTheCustomerAndFailsTheOrder() {
         Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);

@@ -256,7 +256,7 @@ class _HomeState extends ConsumerState<DriverHome> {
       if (_ride != null) Align(alignment: Alignment.bottomCenter, child: _ActiveTrip(ride: _ride!, busy: _busy, onAct: _act)),
       if (_dOffer != null && _ride == null && _delivery == null) Align(alignment: Alignment.bottomCenter, child: _DeliveryOfferCard(offer: _dOffer!, left: _left, busy: _busy,
         onAccept: () => _act('/drivers/delivery-offers/${_dOffer!['offer_id']}/accept'), onDecline: () => _act('/drivers/delivery-offers/${_dOffer!['offer_id']}/decline'))),
-      if (_delivery != null) Align(alignment: Alignment.bottomCenter, child: _ActiveDelivery(delivery: _delivery!, busy: _busy, onAct: _act, onRefresh: _refresh)),
+      if (_delivery != null) Align(alignment: Alignment.bottomCenter, child: ActiveDeliveryCard(delivery: _delivery!, busy: _busy, onAct: _act, onRefresh: _refresh)),
     ]);
   }
 }
@@ -345,12 +345,12 @@ class _DeliveryOfferCard extends ConsumerWidget {
 }
 
 /// Active parcel delivery: pick up at the sender, then hand over to the recipient with their 4-digit code.
-class _ActiveDelivery extends ConsumerWidget {
+class ActiveDeliveryCard extends ConsumerWidget {
   final Map<String, dynamic> delivery;
   final bool busy;
   final Future<void> Function(String path) onAct;
   final Future<void> Function() onRefresh;
-  const _ActiveDelivery({required this.delivery, required this.busy, required this.onAct, required this.onRefresh});
+  const ActiveDeliveryCard({super.key, required this.delivery, required this.busy, required this.onAct, required this.onRefresh});
 
   Future<void> _deliver(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController();
@@ -381,6 +381,7 @@ class _ActiveDelivery extends ConsumerWidget {
         const SizedBox(height: 6),
         Text('${picked ? delivery['dropoffAddress'] : delivery['pickupAddress']} · ${picked ? delivery['recipientName'] : delivery['senderName']}'),
         Text('${delivery['parcelDescription']} · ${delivery['weightKg']} kg', style: const TextStyle(color: JolayColors.textSecondary, fontSize: 12)),
+        if (delivery['cashToCollect'] != null) Padding(padding: const EdgeInsets.only(top: 8), child: Container(key: const Key('cash-to-collect'), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: JolayColors.yellow, borderRadius: BorderRadius.circular(10)), child: Row(children: [const Icon(Icons.payments_outlined), const SizedBox(width: 8), Expanded(child: Text(ref.t('delivery.collectCash'), style: const TextStyle(fontWeight: FontWeight.w700))), Text(formatKzt(delivery['cashToCollect']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))]))),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(child: OutlinedButton.icon(onPressed: () => launchUrl(Uri.parse('geo:${target['lat']},${target['lng']}?q=${target['lat']},${target['lng']}'), mode: LaunchMode.externalApplication), icon: const Icon(Icons.navigation_outlined), label: Text(ref.t('nav.home')), style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)))),

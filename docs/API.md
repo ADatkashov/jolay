@@ -33,3 +33,5 @@ Partner (`ROLE_PARTNER`): `POST /partner/register`, `GET /partner/me`, stores an
 Admin: `GET /admin/partners`, `POST /admin/partners/{id}/status`, `GET /admin/store-orders`.
 
 Partner payouts (V9): `POST /partner/payouts` (amount, destination; holds PARTNER_WALLET funds), `GET /partner/payouts`. Finance pays/rejects through the same `/admin/payouts/{id}/pay|reject` endpoints as driver payouts; `GET /admin/payouts` returns `wallet_type`.
+
+Cash on delivery (V10): `POST /store-orders` accepts `paymentMethod` = `WALLET` (default, escrow) or `CASH`. Errors: `cash_limit_exceeded`, `too_many_cash_orders`. The courier's active delivery carries `cashToCollect`.
