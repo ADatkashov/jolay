@@ -44,8 +44,8 @@ export async function api<T = unknown>(method: string, path: string, body?: unkn
   return data as T;
 }
 
-export async function login(identifier: string, password: string): Promise<Session> {
-  const s = await api<Session>("POST", "/auth/login", { identifier, password });
+export async function login(identifier: string, password: string, mfaCode?: string): Promise<Session> {
+  const s = await api<Session>("POST", "/auth/login", { identifier, password, ...(mfaCode ? { mfaCode } : {}) });
   if (!s.user.roles.some((r) => ADMIN_ROLES.includes(r))) throw new ApiError(403, "forbidden", "This account has no staff access");
   saveSession(s);
   return s;

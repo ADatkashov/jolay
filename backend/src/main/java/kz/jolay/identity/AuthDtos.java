@@ -14,7 +14,7 @@ public final class AuthDtos {
             @AssertTrue(message = "terms_not_accepted") boolean acceptTerms,
             @Pattern(regexp = "kk|ru|en") String locale) {}
     public record VerifyOtpRequest(@NotBlank String phone, @NotBlank @Size(min = 4, max = 8) String code) {}
-    public record LoginRequest(@NotBlank String identifier, @NotBlank String password) {}
+    public record LoginRequest(@NotBlank String identifier, @NotBlank String password, @Size(max = 20) String mfaCode) {}
     public record RefreshRequest(@NotBlank String refreshToken) {}
     public record ForgotRequest(@NotBlank String identifier) {}
     public record ResetRequest(@NotBlank String identifier, @NotBlank String code, @NotBlank @Size(min = 8, max = 72) String newPassword) {}

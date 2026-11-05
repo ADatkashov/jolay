@@ -34,6 +34,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Customer (Flutter): splash, onboarding, signup, OTP, login, forgot/reset, location permission handling, home, destination search, map picker, ride options, searching, live tracking, SOS (dials 112), payment, rating, history, wallet, profile, support chat | ✅ widget-tested (8 tests); never run on a device/emulator in this environment |
 | Driver (Flutter): auth, vehicle registration, document upload, verification status, online toggle + location publishing, offer card with countdown, active-trip stages, navigation hand-off, earnings, orders, profile | 🟡 4 widget tests; never run on a device |
 | Admin (React): dashboard, live ops (tables, no map), rides, drivers approve/reject/suspend, customers, payments/refunds, pricing, support, settings, audit | ✅ builds, 7 tests |
+| Staff two-factor (TOTP + recovery codes, admin console login and "My security" page) | ✅ optional, not enforced | enforcement for finance/super roles; no QR code (key + link only); no admin reset UI |
 | Partner portal (`apps/partner-web`: registration, stores, menu, order accept/reject/ready, sales report; 7 tests) | ✅ (never opened in a real browser against a live backend) |
 | Customer marketplace (shops list, menu, cart, checkout with server quote, wallet or cash on delivery, order tracking with handover code; 4 widget tests) | ✅ (not run on a device) |
 | Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |

@@ -1,6 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Deliveries, Incidents, Partners } from "./pages/Ops";
+import { Login } from "./App";
+import Security from "./pages/Security";
 
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
 
@@ -73,5 +75,46 @@ describe("Partners page", () => {
     render(<Partners roles={["SUPPORT_AGENT"]} />);
     expect(await screen.findByText("Nan Bistro")).toBeInTheDocument();
     expect(screen.queryByText("Approve")).toBeNull();
+  });
+});
+
+describe("two-factor", () => {
+  it("login asks for the code after mfa_required and sends it with the same credentials", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_u, init) => {
+      const b = JSON.parse(String(init?.body)); bodies.push(b);
+      return b.mfaCode
+        ? new Response(JSON.stringify({ accessToken: "a", refreshToken: "r", user: { id: "1", fullName: "Ops", roles: ["FINANCE_ADMIN"] } }), { status: 200 })
+        : new Response(JSON.stringify({ code: "mfa_required", message: "Enter the code" }), { status: 401 });
+    });
+    const done = vi.fn();
+    render(<Login onDone={done} />);
+    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "+77011112233" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Secret123" } });
+    fireEvent.click(screen.getByText("Sign in"));
+    const code = await screen.findByLabelText("Authenticator code or recovery code");
+    expect(done).not.toHaveBeenCalled();
+    fireEvent.change(code, { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("Verify and sign in"));
+    await waitFor(() => expect(done).toHaveBeenCalled());
+    expect(bodies[1]).toEqual({ identifier: "+77011112233", password: "Secret123", mfaCode: "123456" });
+  });
+
+  it("the security page walks through setup, shows recovery codes once and confirms with a code", async () => {
+    sessionStorage.setItem("jolay.admin.session", JSON.stringify({ accessToken: "t", refreshToken: "r", user: { id: "1", fullName: "Ops", roles: ["FINANCE_ADMIN"] } }));
+    const calls: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u, init) => {
+      const url = String(u); calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/account/mfa/setup")) return new Response(JSON.stringify({ secret: "JBSWY3DPEHPK3PXP", otpauthUri: "otpauth://totp/JOLAY:x?secret=JBSWY3DPEHPK3PXP" }), { status: 200 });
+      if (url.endsWith("/account/mfa/enable")) return new Response(JSON.stringify({ enabled: true, recoveryCodes: ["AAAAA-BBBBB", "CCCCC-DDDDD"] }), { status: 200 });
+      return new Response(JSON.stringify({ enabled: false, recoveryCodesLeft: 0 }), { status: 200 });
+    });
+    render(<Security />);
+    fireEvent.click(await screen.findByText("Set up two-factor authentication"));
+    expect(await screen.findByLabelText("setup key")).toHaveTextContent("JBSWY3DPEHPK3PXP");
+    fireEvent.change(screen.getByLabelText("Confirmation code"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("Turn on"));
+    expect(await screen.findByLabelText("recovery codes")).toHaveTextContent("AAAAA-BBBBB");
+    expect(calls.some((c) => c.startsWith("POST") && c.endsWith("/account/mfa/enable"))).toBe(true);
   });
 });
