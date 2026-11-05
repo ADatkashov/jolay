@@ -2,6 +2,7 @@ package kz.jolay.delivery;
 
 import kz.jolay.common.ApiException;
 import kz.jolay.common.AppSettings;
+import kz.jolay.marketplace.StoreSettlement;
 import kz.jolay.notifications.Notifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +26,10 @@ public class DeliveryDispatchService {
     private final Notifier notifier;
     private final DeliveryStateMachine sm;
     private final TransactionTemplate tx;
+    private final StoreSettlement storeSettlement;
 
-    public DeliveryDispatchService(JdbcClient jdbc, AppSettings settings, Notifier notifier, DeliveryStateMachine sm, TransactionTemplate tx) {
-        this.jdbc = jdbc; this.settings = settings; this.notifier = notifier; this.sm = sm; this.tx = tx;
+    public DeliveryDispatchService(JdbcClient jdbc, AppSettings settings, Notifier notifier, DeliveryStateMachine sm, TransactionTemplate tx, StoreSettlement storeSettlement) {
+        this.jdbc = jdbc; this.settings = settings; this.notifier = notifier; this.sm = sm; this.tx = tx; this.storeSettlement = storeSettlement;
     }
 
     private record Candidate(UUID courierId, double distanceM) {}
@@ -43,6 +45,8 @@ public class DeliveryDispatchService {
         if (elapsed > settings.getInt("delivery.search_timeout_seconds")) {
             sm.move(id, DeliveryStatus.SEARCHING_COURIER, DeliveryStatus.EXPIRED, "SYSTEM", ", cancelled_at=now(), cancelled_by='SYSTEM', cancel_reason='no_courier_found'", null);
             notifier.notify((UUID) d.get("customer_id"), "DELIVERY_STATUS", "delivery-" + id + "-expired", Map.of("deliveryId", id.toString(), "status", "EXPIRED"));
+            // a store order whose delivery found no courier is refunded in full
+            jdbc.sql("SELECT store_order_id FROM delivery_orders WHERE id=:id AND store_order_id IS NOT NULL").param("id", id).query(UUID.class).optional().ifPresent(so -> storeSettlement.refundAndClose(so, "FAILED", "no_courier_found"));
             return;
         }
         int radius = Math.min(settings.getInt("dispatch.max_radius_m"), settings.getInt("dispatch.initial_radius_m")

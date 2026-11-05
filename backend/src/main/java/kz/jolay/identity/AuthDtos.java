@@ -10,7 +10,7 @@ public final class AuthDtos {
             @Email @Size(max = 254) String email,
             @NotBlank String phone,
             @NotBlank @Size(min = 8, max = 72) String password,
-            @NotBlank @Pattern(regexp = "CUSTOMER|DRIVER") String role,
+            @NotBlank @Pattern(regexp = "CUSTOMER|DRIVER|PARTNER") String role,
             @AssertTrue(message = "terms_not_accepted") boolean acceptTerms,
             @Pattern(regexp = "kk|ru|en") String locale) {}
     public record VerifyOtpRequest(@NotBlank String phone, @NotBlank @Size(min = 4, max = 8) String code) {}

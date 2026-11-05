@@ -5,6 +5,7 @@ import kz.jolay.geography.EstimatedRouteProvider;
 import kz.jolay.geography.GeoService;
 import kz.jolay.geography.RouteProvider;
 import kz.jolay.identity.AuthService;
+import kz.jolay.marketplace.StoreSettlement;
 import kz.jolay.notifications.Notifier;
 import kz.jolay.wallet.LedgerService;
 import kz.jolay.wallet.LedgerService.Leg;
@@ -31,10 +32,11 @@ public class DeliveryService {
     private final Notifier notifier;
     private final AppSettings settings;
     private final CodeAttempts attempts;
+    private final StoreSettlement storeSettlement;
     static final int MAX_CODE_ATTEMPTS = 5;
 
-    public DeliveryService(JdbcClient jdbc, GeoService geo, RouteProvider routes, DeliveryStateMachine sm, DeliveryDispatchService dispatch, LedgerService ledger, Notifier notifier, AppSettings settings, CodeAttempts attempts) {
-        this.attempts = attempts;
+    public DeliveryService(JdbcClient jdbc, GeoService geo, RouteProvider routes, DeliveryStateMachine sm, DeliveryDispatchService dispatch, LedgerService ledger, Notifier notifier, AppSettings settings, CodeAttempts attempts, StoreSettlement storeSettlement) {
+        this.attempts = attempts; this.storeSettlement = storeSettlement;
         this.jdbc = jdbc; this.geo = geo; this.routes = routes; this.sm = sm; this.dispatch = dispatch; this.ledger = ledger; this.notifier = notifier; this.settings = settings;
     }
 
@@ -169,8 +171,9 @@ public class DeliveryService {
     // ---------------- customer actions ----------------
     @Transactional
     public Map<String, Object> cancelByCustomer(UUID id, UUID customerId, String reason) {
-        var d = jdbc.sql("SELECT status, customer_id, courier_id FROM delivery_orders WHERE id=:id FOR UPDATE").param("id", id).query().listOfRows().stream().findFirst().orElse(null);
+        var d = jdbc.sql("SELECT status, customer_id, courier_id, store_order_id FROM delivery_orders WHERE id=:id FOR UPDATE").param("id", id).query().listOfRows().stream().findFirst().orElse(null);
         if (d == null || !customerId.equals(d.get("customer_id"))) throw ApiException.notFound("delivery_not_found", "Delivery not found");
+        if (d.get("store_order_id") != null) throw ApiException.conflict("cancel_via_store_order", "This delivery belongs to a store order. Cancel or contact support through the order");
         DeliveryStatus st = DeliveryStatus.valueOf((String) d.get("status"));
         if (st == DeliveryStatus.PICKED_UP || st.isTerminal()) throw ApiException.conflict("cannot_cancel", "The parcel is already on its way or the order is finished");
         sm.move(id, st, DeliveryStatus.CANCELLED, "CUSTOMER:" + customerId, ", cancelled_at=now(), cancelled_by='CUSTOMER', cancel_reason=:r", Map.of("r", reason == null ? "customer_cancelled" : reason));
@@ -196,7 +199,7 @@ public class DeliveryService {
     // ---------------- courier actions ----------------
     private Map<String, Object> lockFor(UUID id, UUID courierId) {
         var d = jdbc.sql("""
-                SELECT id, status, customer_id, courier_id, handover_code, payment_method, fee, commission, courier_earnings,
+                SELECT id, status, customer_id, courier_id, handover_code, payment_method, store_order_id, fee, commission, courier_earnings,
                        ST_Distance(pickup,  (SELECT location FROM driver_locations WHERE driver_id=:c)) AS dist_pickup,
                        ST_Distance(dropoff, (SELECT location FROM driver_locations WHERE driver_id=:c)) AS dist_drop
                 FROM delivery_orders WHERE id=:id FOR NO KEY UPDATE""").param("id", id).param("c", courierId).query().listOfRows().stream().findFirst().orElse(null);
@@ -238,6 +241,10 @@ public class DeliveryService {
     private void settlePayment(UUID id, Map<String, Object> d) {
         UUID courierId = (UUID) d.get("courier_id"), customer = (UUID) d.get("customer_id");
         BigDecimal fee = (BigDecimal) d.get("fee"), commission = (BigDecimal) d.get("commission"), earnings = (BigDecimal) d.get("courier_earnings");
+        if ("PREPAID".equals(d.get("payment_method"))) {      // store order: the escrow is split between partner, courier and platform
+            storeSettlement.settleDelivered((UUID) d.get("store_order_id"), courierId);
+            return;
+        }
         UUID cAcc = ledger.userAccount(courierId, "DRIVER_WALLET");
         if ("CASH".equals(d.get("payment_method"))) {
             if (commission.signum() > 0) ledger.post("CASH_COMMISSION", "DELIVERY", id, "delivery-cash-" + id, "Commission on cash delivery", List.of(new Leg(cAcc, commission.negate()), new Leg(ledger.systemAccount("PLATFORM_REVENUE"), commission)));

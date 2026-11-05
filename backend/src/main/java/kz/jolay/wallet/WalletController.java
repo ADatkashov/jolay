@@ -11,14 +11,14 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/wallet")
-@PreAuthorize("hasAnyRole('CUSTOMER','DRIVER')")
+@PreAuthorize("hasAnyRole('CUSTOMER','DRIVER','PARTNER')")
 public class WalletController {
     private final LedgerService ledger;
     public WalletController(LedgerService ledger) { this.ledger = ledger; }
 
     private UUID account() {
         var u = Auth.user();
-        return ledger.userAccount(u.id(), u.has("DRIVER") ? "DRIVER_WALLET" : "CUSTOMER_WALLET");
+        return ledger.userAccount(u.id(), u.has("DRIVER") ? "DRIVER_WALLET" : u.has("PARTNER") ? "PARTNER_WALLET" : "CUSTOMER_WALLET");
     }
 
     @GetMapping
