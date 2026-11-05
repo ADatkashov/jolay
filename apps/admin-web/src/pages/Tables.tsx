@@ -3,6 +3,7 @@ import { api, ApiError, openProtectedFile } from "../lib/api";
 import { canEditPricing, canVerifyDrivers } from "../lib/nav";
 import { kzt, when } from "../lib/format";
 import { useApi, Status } from "./hooks";
+import { LiveMap } from "./Ops";
 
 type Row = Record<string, any>;
 const pill = (s: string) => <span className={`pill ${["COMPLETED", "APPROVED", "ACTIVE", "SUCCEEDED", "PAID", "ONLINE", "RESOLVED"].includes(s) ? "ok" : ["CANCELLED", "EXPIRED", "FAILED", "REJECTED", "SUSPENDED", "REFUNDED"].includes(s) ? "bad" : "warn"}`}>{s}</span>;
@@ -16,6 +17,7 @@ export function Live() {
   return <><h1>Live Operations</h1><Status error={error} loading={loading} />{data && <>
     <div className="cards"><div className="card"><div className="k">Drivers on the map</div><div className="v">{data.drivers.length}</div></div>
       <div className="card"><div className="k">Active rides</div><div className="v">{data.rides.length}</div></div></div>
+    <LiveMap drivers={data.drivers} rides={data.rides} />
     <h3>Active rides</h3>
     <table><thead><tr><th>Status</th><th>Pickup</th><th>Destination</th><th>Ride</th></tr></thead><tbody>
       {data.rides.map((r) => <tr key={r.id}><td>{pill(r.status)}</td><td>{r.pickup_address}</td><td>{r.dropoff_address}</td><td className="muted">{String(r.id).slice(0, 8)}</td></tr>)}</tbody></table>

@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'auth.dart';
 import 'data.dart';
+import 'payouts.dart';
 
 const tileUrl = String.fromEnvironment('TILE_URL', defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 
@@ -282,6 +283,22 @@ class _OfferCard extends ConsumerWidget {
   Widget _stat(String k, String v) => Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(k, style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(v, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))]));
 }
 
+/// SOS: notifies JOLAY support (ride + position are attached by the backend) and offers to dial 112. It does not replace emergency services.
+void _sos(BuildContext context, WidgetRef ref) => showDialog<void>(context: context, builder: (c) => AlertDialog(
+      title: Text(ref.t('sos.title')),
+      content: Text(ref.t('sos.body')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: Text(ref.t('btn.cancel'))),
+        OutlinedButton(key: const Key('sos-notify'), onPressed: () async {
+          Navigator.pop(c);
+          final pos = ref.read(locationPublisherProvider).last;
+          try { await reportSos(ref.read(apiProvider), lat: pos?.latitude, lng: pos?.longitude); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.t('sos.sent')))); }
+          catch (e) { if (context.mounted) toast(context, ref, e); }
+        }, style: OutlinedButton.styleFrom(minimumSize: const Size(120, 44)), child: Text(ref.t('sos.notify'))),
+        FilledButton(onPressed: () { Navigator.pop(c); launchUrl(Uri.parse('tel:112')); }, style: FilledButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white, minimumSize: const Size(120, 44)), child: Text(ref.t('sos.call'))),
+      ],
+    ));
+
 class _ActiveTrip extends ConsumerWidget {
   final Map<String, dynamic> ride;
   final bool busy;
@@ -316,7 +333,7 @@ class _ActiveTrip extends ConsumerWidget {
           Expanded(child: OutlinedButton.icon(key: const Key('navigate'), onPressed: () => launchUrl(Uri.parse('geo:${target['lat']},${target['lng']}?q=${target['lat']},${target['lng']}'), mode: LaunchMode.externalApplication), icon: const Icon(Icons.navigation_outlined), label: Text(ref.t('nav.home')), style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)))),
           if (ride['customerPhone'] != null) ...[const SizedBox(width: 8), IconButton.outlined(onPressed: () => launchUrl(Uri.parse('tel:${ride['customerPhone']}')), icon: const Icon(Icons.call))],
           const SizedBox(width: 8),
-          IconButton.filled(key: const Key('sos'), onPressed: () => launchUrl(Uri.parse('tel:112')), icon: const Icon(Icons.warning_amber_rounded), style: IconButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white)),
+          IconButton.filled(key: const Key('sos'), onPressed: () => _sos(context, ref), icon: const Icon(Icons.warning_amber_rounded), style: IconButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white)),
         ]),
         const SizedBox(height: 10),
         JolayButton(key: const Key('stage-button'), label: label, busy: busy, onPressed: () => onAct(path)),
@@ -393,6 +410,7 @@ class DriverProfile extends ConsumerWidget {
       const SizedBox(height: 12),
       JolayCard(padding: EdgeInsets.zero, child: Column(children: [
         ListTile(leading: const Icon(Icons.language), title: Text(ref.t('profile.language')), trailing: const LangRow()),
+        ListTile(key: const Key('open-payouts'), leading: const Icon(Icons.account_balance_outlined), title: Text(ref.t('payout.title')), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PayoutsScreen()))),
         ListTile(leading: const Icon(Icons.health_and_safety_outlined), title: Text(ref.t('driver.safety')), subtitle: const Text('112'), onTap: () => launchUrl(Uri.parse('tel:112'))),
       ])),
       const SizedBox(height: 16),

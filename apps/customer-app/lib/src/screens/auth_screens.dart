@@ -68,6 +68,7 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
           const SizedBox(height: 8),
           CheckboxListTile(key: const Key('signup-terms'), value: _terms, onChanged: (x) => setState(() => _terms = x ?? false), controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
               title: Text(ref.t('auth.terms'), style: const TextStyle(fontSize: 13)), activeColor: JolayColors.midnight),
+          Row(children: [TextButton(key: const Key('open-terms'), onPressed: () => context.push('/legal/TERMS'), child: Text(ref.t('legal.terms'), style: const TextStyle(fontSize: 12))), TextButton(onPressed: () => context.push('/legal/PRIVACY'), child: Text(ref.t('legal.privacy'), style: const TextStyle(fontSize: 12)))]),
           if (_showTermsError && !_terms) Align(alignment: Alignment.centerLeft, child: Text(ref.t('val.terms'), style: const TextStyle(color: JolayColors.error, fontSize: 12))),
           const SizedBox(height: 16),
           JolayButton(label: ref.t('btn.signup'), busy: _busy, onPressed: _submit),

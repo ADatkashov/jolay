@@ -17,6 +17,18 @@ describe("role based navigation", () => {
     const ids = navFor(["SUPER_ADMIN"]).map((n) => n.id);
     expect(ids).toEqual(expect.arrayContaining(["settings", "audit", "payments"]));
   });
+  it("operations pages are limited to the roles the backend allows", () => {
+    const ids = (r: string) => navFor([r]).map((n) => n.id);
+    expect(ids("SUPPORT_AGENT")).toContain("incidents");
+    expect(ids("SUPPORT_AGENT")).not.toContain("payouts");
+    expect(ids("SUPPORT_AGENT")).not.toContain("risk");
+    expect(ids("FINANCE_ADMIN")).toEqual(expect.arrayContaining(["payouts", "risk"]));
+    expect(ids("FINANCE_ADMIN")).not.toContain("incidents");
+    expect(ids("OPERATIONS_ADMIN")).toEqual(expect.arrayContaining(["incidents", "risk"]));
+    expect(ids("OPERATIONS_ADMIN")).not.toContain("legal");
+    expect(ids("SUPER_ADMIN")).toContain("legal");
+    expect(ids("PARTNER_ADMIN")).toEqual([]);
+  });
   it("pricing editing is finance/super only", () => {
     expect(canEditPricing(["OPERATIONS_ADMIN"])).toBe(false);
     expect(canEditPricing(["FINANCE_ADMIN"])).toBe(true);

@@ -7,6 +7,7 @@ import kz.jolay.geography.RouteProvider;
 import kz.jolay.notifications.Notifier;
 import kz.jolay.payments.PaymentService;
 import kz.jolay.pricing.PricingService;
+import kz.jolay.risk.RiskService;
 import kz.jolay.rides.RideDtos.*;
 import kz.jolay.wallet.LedgerService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -32,9 +33,11 @@ public class RideService {
     private final Notifier notifier;
     private final AppSettings settings;
     private final MeterRegistry metrics;
+    private final RiskService risk;
 
     public RideService(JdbcClient jdbc, GeoService geo, RouteProvider routes, PricingService pricing, RideStateMachine sm, DispatchService dispatch,
-                       PaymentService payments, LedgerService ledger, Notifier notifier, AppSettings settings, MeterRegistry metrics) {
+                       PaymentService payments, LedgerService ledger, Notifier notifier, AppSettings settings, MeterRegistry metrics, RiskService risk) {
+        this.risk = risk;
         this.jdbc = jdbc; this.geo = geo; this.routes = routes; this.pricing = pricing; this.sm = sm; this.dispatch = dispatch;
         this.payments = payments; this.ledger = ledger; this.notifier = notifier; this.settings = settings; this.metrics = metrics;
     }
@@ -217,6 +220,7 @@ public class RideService {
                 jdbc.sql("INSERT INTO driver_status_history(driver_id,from_status,to_status) VALUES (:d,'BUSY','ONLINE')").param("d", driver).update();
             notifier.notify(driver, "RIDE_CANCELLED", "ride-cancelled-" + rideId, Map.of("rideId", rideId.toString(), "by", "CUSTOMER"));
         }
+        risk.onCustomerCancel(customerId);
         metrics.counter("jolay.rides.cancelled", "by", "customer").increment();
         return get(rideId, customerId, Set.of("CUSTOMER"));
     }
@@ -295,7 +299,10 @@ public class RideService {
                 .param("m", fare.multiplier()).param("tot", fare.total()).param("cr", fare.commissionRate()).param("c", fare.commission()).param("e", fare.driverEarnings()).update();
         if (jdbc.sql("UPDATE drivers SET availability='ONLINE', updated_at=now() WHERE user_id=:d AND availability='BUSY'").param("d", driverId).update() == 1)
             jdbc.sql("INSERT INTO driver_status_history(driver_id,from_status,to_status) VALUES (:d,'BUSY','ONLINE')").param("d", driverId).update();
+        // Keep a simplified route (~5 m tolerance) permanently; raw points are purged after the retention window.
+        jdbc.sql("UPDATE rides SET route_line = (SELECT ST_Simplify(ST_MakeLine(location::geometry ORDER BY id), 0.00005)::geography FROM ride_locations WHERE ride_id=:r HAVING count(*) >= 2) WHERE id=:r").param("r", rideId).update();
         payments.settleRideOnCompletion(rideId);
+        risk.onRideCompleted(rideId);
         notifier.notify((UUID) r.get("customer_id"), "RIDE_COMPLETED", "ride-" + rideId + "-completed", Map.of("rideId", rideId.toString(), "status", "COMPLETED", "total", fare.total()));
         metrics.counter("jolay.rides.completed").increment();
         return get(rideId, driverId, Set.of("DRIVER"));
@@ -311,6 +318,7 @@ public class RideService {
         if (jdbc.sql("UPDATE drivers SET availability='ONLINE', updated_at=now() WHERE user_id=:d AND availability='BUSY'").param("d", driverId).update() == 1)
             jdbc.sql("INSERT INTO driver_status_history(driver_id,from_status,to_status) VALUES (:d,'BUSY','ONLINE')").param("d", driverId).update();
         notifier.notify((UUID) r.get("customer_id"), "DRIVER_CANCELLED", "ride-" + rideId + "-drvcancel-" + driverId, Map.of("rideId", rideId.toString(), "status", "SEARCHING_DRIVER"));
+        risk.onDriverCancel(driverId);
         metrics.counter("jolay.rides.cancelled", "by", "driver").increment();
         dispatch.dispatchRound(rideId);
     }

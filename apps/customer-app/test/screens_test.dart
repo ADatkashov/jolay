@@ -4,12 +4,14 @@ import 'package:jolay_core/jolay_core.dart';
 import 'package:jolay_customer/src/data/models.dart';
 import 'package:jolay_customer/src/data/providers.dart';
 import 'package:jolay_customer/src/screens/auth_screens.dart';
+import 'package:jolay_customer/src/screens/legal_screen.dart';
 import 'package:jolay_customer/src/screens/onboarding.dart';
 import 'package:jolay_customer/src/screens/ride_screens.dart';
 
 import 'helpers.dart';
 
 void main() {
+  legalAndSosTests();
   testWidgets('login validates input locally and does not call the API', (t) async {
     final api = FakeApi({});
     await t.pumpWidget(app(const LoginScreen(), api: api));
@@ -146,6 +148,44 @@ void main() {
     await t.pump(const Duration(milliseconds: 400));
     expect(api.calls.any((c) => c.method == 'POST' && c.path == '/rides/r1/cancel'), isTrue);
     await t.pumpWidget(const SizedBox());   // dispose: stops the polling timer and animations
+  });
+}
+
+
+void legalAndSosTests() {
+  testWidgets('legal screen says "not published" instead of inventing text', (t) async {
+    final api = FakeApi({'GET /catalog/legal/TERMS': ApiException(404, 'legal_not_published', 'x')});
+    await t.pumpWidget(app(const LegalScreen(type: 'TERMS'), api: api, overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.pump(); await t.pump();
+    expect(find.byKey(const Key('legal-missing')), findsOneWidget);
+    expect(find.text('This document has not been published yet.'), findsOneWidget);
+    expect(api.calls.single.path, '/catalog/legal/TERMS');
+  });
+
+  testWidgets('legal screen shows the published text and version', (t) async {
+    final api = FakeApi({'GET /catalog/legal/PRIVACY': {'type': 'PRIVACY', 'locale': 'ru', 'version': 3, 'body': 'Текст политики'}});
+    await t.pumpWidget(app(const LegalScreen(type: 'PRIVACY'), api: api, overrides: [localeProvider.overrideWith(() => _Ru())]));
+    await t.pump(); await t.pump();
+    expect(find.text('Текст политики'), findsOneWidget);
+    expect(find.text('Версия 3'), findsOneWidget);
+  });
+
+  testWidgets('SOS during a ride notifies JOLAY support with the position and does not claim anything else', (t) async {
+    tallScreen(t);
+    final api = FakeApi({'GET /rides/r1': rideJson(status: 'DRIVER_ARRIVING', paymentStatus: 'NONE'), 'POST /incidents': {'id': 'i1', 'status': 'OPEN', 'duplicate': false}});
+    await t.pumpWidget(app(const RideTrackScreen(rideId: 'r1'), api: api, overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.pump(); await t.pump();
+    await t.tap(find.byKey(const Key('sos')));
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.text('Emergency help'), findsOneWidget);
+    await t.tap(find.byKey(const Key('sos-notify')));
+    await t.pump(const Duration(milliseconds: 400));
+    final call = api.calls.firstWhere((c) => c.path == '/incidents');
+    final body = call.body as Map;
+    expect(body['type'], 'SOS');
+    expect((body['point'] as Map)['lat'], 43.2335);   // falls back to the pickup point when the driver position is unknown
+    expect(find.text('Support has been notified. If you are in danger, call 112.'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
   });
 }
 

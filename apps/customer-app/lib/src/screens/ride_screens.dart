@@ -342,9 +342,18 @@ class _Active extends ConsumerWidget {
 
   /// SOS: there is no operator integration yet, so the honest behaviour is to dial the national emergency number (112).
   void _sos(BuildContext context, WidgetRef ref) => showDialog<void>(context: context, builder: (c) => AlertDialog(
-        title: Text(ref.t('ride.sos')),
-        content: const Text('112'),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(ref.t('btn.cancel'))), FilledButton(onPressed: () { Navigator.pop(c); launchUrl(Uri.parse('tel:112')); }, style: FilledButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white, minimumSize: const Size(120, 44)), child: Text('${ref.t('ride.call')} 112'))],
+        title: Text(ref.t('sos.title')),
+        content: Text(ref.t('sos.body')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(ref.t('btn.cancel'))),
+          OutlinedButton(key: const Key('sos-notify'), onPressed: () async {
+            Navigator.pop(c);
+            final pos = live ?? (ride.driver?.lat != null ? LatLng(ride.driver!.lat!, ride.driver!.lng!) : LatLng(ride.pickupLat, ride.pickupLng));
+            try { await reportSos(ref.read(apiProvider), lat: pos.latitude, lng: pos.longitude); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.t('sos.sent')))); }
+            catch (e) { if (context.mounted) showError(context, ref, e); }
+          }, style: OutlinedButton.styleFrom(minimumSize: const Size(120, 44)), child: Text(ref.t('sos.notify'))),
+          FilledButton(onPressed: () { Navigator.pop(c); launchUrl(Uri.parse('tel:112')); }, style: FilledButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white, minimumSize: const Size(120, 44)), child: Text(ref.t('sos.call'))),
+        ],
       ));
 }
 

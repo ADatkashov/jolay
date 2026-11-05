@@ -20,6 +20,7 @@ class FakeApi extends ApiClient {
     calls.add((method: method, path: path, body: body, headers: headers));
     if (throwOn != null && method == 'POST' && path == '/rides') throw throwOn!;
     final r = responses['$method $path'] ?? responses[path];
+    if (r is Exception) throw r;
     if (r is Function) return r();
     return r;
   }

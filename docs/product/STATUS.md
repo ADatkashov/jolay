@@ -17,14 +17,14 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Ledger (double entry, append-only, idempotent, DB-enforced immutability) | ✅ | |
 | Wallet top-up, wallet/cash/card ride settlement, refunds | ✅ | against the **sandbox** gateway 🧪 |
 | Payment webhooks: HMAC verification, dedupe, amount check | ✅ | real providers (Kaspi / FreedomPay) ⛔ — need merchant contracts |
-| Driver payouts, reconciliation jobs | ⛔ | `payouts` table exists, no workflow |
+| Driver payouts (hold → paid/rejected through the ledger), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
 | Ratings, support tickets/chat (REST + notification event), notifications (dedupe), audit log | ✅ | |
 | WebSocket events with reconnect hints | 🟡 | event delivery after commit; no WS integration test |
 | Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
 | Delivery (food/grocery/parcel), partners, stores, products | ⛔ | not started |
-| SOS operator integration, trip sharing links, emergency contacts, incident reports | ⛔ | clients only dial 112 |
-| Fraud / risk flags | ⛔ | only basic GPS-jump rejection + fare cap exist |
+| SOS / complaints → incidents with staff notification, investigation history, admin handling | ✅ | apps also dial 112; no on-call schedule/SLA/escalation; trip sharing links and emergency contacts ⛔ |
+| Risk flags (7 rules, human review, no auto-suspension) | ✅ | thresholds are uncalibrated defaults |
 | FCM push, real SMS gateway | ⛔ | interfaces exist (`SmsSender`, `Notifier`) |
 
 ## Apps
@@ -34,7 +34,8 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Driver (Flutter): auth, vehicle registration, document upload, verification status, online toggle + location publishing, offer card with countdown, active-trip stages, navigation hand-off, earnings, orders, profile | 🟡 4 widget tests; never run on a device |
 | Admin (React): dashboard, live ops (tables, no map), rides, drivers approve/reject/suspend, customers, payments/refunds, pricing, support, settings, audit | ✅ builds, 7 tests |
 | Partner portal | ⛔ |
-| Customer screens not built: Select Country picker, dedicated Terms/Privacy/About pages, Delivery/Express flows, referral | ⛔ |
+| Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |
+| Customer screens not built: Select Country picker, Delivery/Express flows, referral | ⛔ |
 
 ## Known limitations
 * Map tiles default to public OpenStreetMap (dev only — policy forbids production use).
