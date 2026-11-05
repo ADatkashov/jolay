@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api.dart';
+import 'push.dart';
 
 class AuthUser {
   final String id, fullName, phone;
@@ -43,6 +44,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       final me = await _api.get('/customers/me') as Map<String, dynamic>;
       state = AuthState(AuthStatus.signedIn, AuthUser.fromJson(me));
+      _registerPush();
     } on ApiException catch (e) {
       if (e.isNetwork) { state = const AuthState(AuthStatus.signedOut); return; }
       await _api.tokens.clear();
@@ -68,7 +70,10 @@ class AuthController extends Notifier<AuthState> {
     if (!user.roles.contains(ref.read(requiredRoleProvider))) throw ApiException(403, 'forbidden', 'wrong app for this account');
     await _api.tokens.write(TokenPair(j['accessToken'] as String, j['refreshToken'] as String));
     state = AuthState(AuthStatus.signedIn, user);
+    _registerPush();
   }
+
+  void _registerPush() => registerPushToken(_api, ref.read(pushTokenSourceProvider));
 
   Future<void> forgot(String identifier) => _api.post('/auth/forgot-password', auth: false, body: {'identifier': identifier});
   Future<void> reset(String identifier, String code, String newPassword) => _api.post('/auth/reset-password', auth: false, body: {'identifier': identifier, 'code': code, 'newPassword': newPassword});
