@@ -65,7 +65,8 @@ public class DeliveryDispatchService {
                       AND EXISTS (SELECT 1 FROM vehicles v WHERE v.driver_id=d2.user_id AND v.active AND v.approved)
                       AND dl.updated_at > now() - make_interval(secs => :age)
                       AND ST_DWithin(dl.location, o.pickup, :radius)
-                      AND COALESCE(a.balance, 0) >= :floor
+                      AND COALESCE(a.balance, 0) - CASE WHEN o.payment_method = 'STORE_CASH'
+                              THEN (SELECT so.items_total + so.delivery_fee - o.courier_earnings FROM store_orders so WHERE so.id = o.store_order_id) ELSE 0 END >= :floor
                       AND NOT EXISTS (SELECT 1 FROM delivery_offers x WHERE x.delivery_id=o.id AND x.courier_id=d2.user_id)
                     ORDER BY dl.location <-> o.pickup
                     LIMIT :pool
