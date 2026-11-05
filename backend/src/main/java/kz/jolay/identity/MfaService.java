@@ -45,7 +45,10 @@ public class MfaService {
 
     public Map<String, Object> status(UUID userId) {
         int left = jdbc.sql("SELECT count(*) FROM mfa_recovery_codes WHERE user_id=:u AND used_at IS NULL").param("u", userId).query(Integer.class).single();
-        return Map.of("enabled", enabled(userId), "recoveryCodesLeft", left);
+        boolean required = "true".equals(jdbc.sql("SELECT value FROM application_settings WHERE key='security.staff_mfa_required'").query(String.class).optional().orElse("false"));
+        Set<String> roles = Set.copyOf(jdbc.sql("SELECT role FROM user_roles WHERE user_id=:u").param("u", userId).query(String.class).list());
+        boolean mustEnrol = required && roles.stream().anyMatch(JwtAuthFilter.MFA_ENFORCED_ROLES::contains) && !enabled(userId);
+        return Map.of("enabled", enabled(userId), "recoveryCodesLeft", left, "enrolmentRequired", mustEnrol);
     }
 
     /** Step 1: creates a pending secret (replacing any earlier pending one). Nothing is enforced until {@link #enable} confirms a code. */

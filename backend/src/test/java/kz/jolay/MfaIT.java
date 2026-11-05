@@ -85,4 +85,31 @@ class MfaIT extends IntegrationTestBase {
         assertEquals(429, status, "wrong codes count towards the same lockout as wrong passwords");
         assertEquals("login_locked", login(e.s().phone(), Totp.code(e.secret(), now() + 1)).s("code"), "even a correct code is refused while locked");
     }
+
+    @Test
+    void enforcementConfinesUnenrolledFinanceAndSuperAdminsToEnrolment() {
+        Session fin = admin("FINANCE_ADMIN"), sup = admin("SUPER_ADMIN"), ops = admin("OPERATIONS_ADMIN"), agent = admin("SUPPORT_AGENT");
+        try {
+            assertEquals(200, get("/api/v1/admin/payouts", fin.token()).status(), "off by default");
+            jdbc.sql("UPDATE application_settings SET value='true' WHERE key='security.staff_mfa_required'").update();
+
+            Resp blocked = get("/api/v1/admin/payouts", fin.token());
+            assertEquals(403, blocked.status());
+            assertEquals("mfa_enrollment_required", blocked.s("code"));
+            assertEquals(403, get("/api/v1/admin/settings", sup.token()).status());
+            assertTrue(get("/api/v1/account/mfa", fin.token()).body().path("enrolmentRequired").asBoolean());
+            assertEquals(200, get("/api/v1/admin/rides", ops.token()).status(), "roles outside the enforced set are unaffected");
+            assertEquals(200, get("/api/v1/admin/rides", agent.token()).status());
+            assertEquals(403, get("/api/v1/admin/payouts", customer().token()).status(), "ordinary role rules still apply");
+
+            // enrolment stays reachable and, once done, unlocks the console
+            String secret = post("/api/v1/account/mfa/setup", fin.token(), null).s("secret");
+            assertEquals(200, post("/api/v1/account/mfa/enable", fin.token(), Map.of("code", Totp.code(secret, now()))).status());
+            assertEquals(200, get("/api/v1/admin/payouts", fin.token()).status());
+            assertFalse(get("/api/v1/account/mfa", fin.token()).body().path("enrolmentRequired").asBoolean());
+            assertEquals(403, get("/api/v1/admin/settings", sup.token()).status(), "the other account is still confined");
+        } finally {
+            jdbc.sql("UPDATE application_settings SET value='false' WHERE key='security.staff_mfa_required'").update();
+        }
+    }
 }

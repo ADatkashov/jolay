@@ -118,3 +118,17 @@ describe("two-factor", () => {
     expect(calls.some((c) => c.startsWith("POST") && c.endsWith("/account/mfa/enable"))).toBe(true);
   });
 });
+
+describe("enforced two-factor", () => {
+  it("locks the console to the security page while enrolment is required", async () => {
+    const { Shell } = await import("./App");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (u) => {
+      if (String(u).endsWith("/account/mfa")) return new Response(JSON.stringify({ enabled: false, recoveryCodesLeft: 0, enrolmentRequired: true }), { status: 200 });
+      return new Response(JSON.stringify({}), { status: 200 });
+    });
+    render(<Shell session={{ accessToken: "t", refreshToken: "r", user: { id: "1", fullName: "Fin", roles: ["FINANCE_ADMIN"] } }} onLogout={() => {}} />);
+    expect(await screen.findByText(/required for your role/)).toBeInTheDocument();
+    expect(screen.getByText("Set up two-factor authentication")).toBeInTheDocument();
+    expect(screen.queryByText("Payouts")).toBeNull();
+  });
+});
