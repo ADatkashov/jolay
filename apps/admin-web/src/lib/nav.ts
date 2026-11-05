@@ -7,6 +7,7 @@ export const NAV: NavItem[] = [
   { id: "overview", label: "Overview", roles: ALL },
   { id: "live", label: "Live Operations", roles: ALL },
   { id: "rides", label: "Rides", roles: ALL },
+  { id: "deliveries", label: "Deliveries", roles: ALL },
   { id: "drivers", label: "Drivers", roles: ALL },
   { id: "customers", label: "Customers", roles: ALL },
   { id: "incidents", label: "Incidents & SOS", roles: ["SUPER_ADMIN", "OPERATIONS_ADMIN", "SUPPORT_AGENT"] },

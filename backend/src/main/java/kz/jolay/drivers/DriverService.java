@@ -47,7 +47,7 @@ public class DriverService {
 
     public Map<String, Object> me(UUID userId) {
         var d = jdbc.sql("""
-                SELECT d.verification, d.availability, d.rating_avg, d.rating_count, d.rejection_reason, d.offers_total, d.offers_accepted, u.full_name, u.phone
+                SELECT d.verification, d.availability, d.accepts_delivery, d.rating_avg, d.rating_count, d.rejection_reason, d.offers_total, d.offers_accepted, u.full_name, u.phone
                 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=:u""").param("u", userId).query().listOfRows().stream().findFirst()
                 .orElseThrow(() -> ApiException.notFound("driver_not_registered", "Driver profile not found"));
         var veh = jdbc.sql("SELECT id, brand, model, year, color, plate, category_code, approved FROM vehicles WHERE driver_id=:u AND active ORDER BY created_at LIMIT 1").param("u", userId).query().listOfRows();

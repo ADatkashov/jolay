@@ -26,6 +26,12 @@
 | 21 | Risk flags are advisory: no automatic suspension, blocking or charging; each decision needs a note and is audited | `RiskService`, `RiskController` |
 | 22 | Raw GPS points are deleted after `rides.raw_track_retention_days` (14); the simplified route stays | `TrackRetentionJob` |
 | 23 | Legal texts are versioned and published only by SUPER_ADMIN; none is pre-filled | `LegalController` |
+| 24 | Express: only couriers who opted in (`accepts_delivery`), approved, online, with a fresh position are offered parcels; one offer at a time; weight must fit the size class; route ≤ `delivery.max_distance_m` | `DeliveryDispatchService`, `DeliveryService.quote` |
+| 25 | Express fee = max(min fare, base + km × rate + extra kg × rate) rounded up; commission per tariff; computed only on the server | `DeliveryService.quote` |
+| 26 | Pickup/hand-over must be confirmed within `delivery.arrive_radius_m` of the point; hand-over needs the recipient's 4-digit code (shown only to the customer); 5 wrong codes lock the order for support | `DeliveryService` |
+| 27 | A parcel cannot be cancelled by the customer once picked up; a courier can hand an unpicked order back (it is re-queued, excluding that courier) | `DeliveryService` |
+| 28 | Cash delivery: courier owes the commission (wallet debit); wallet delivery: ledger customer → courier + platform at hand-over | `DeliveryService.settlePayment` |
+| 29 | Public tracking returns status and timestamps only (no names, phones, addresses) | `DeliveryService.publicTrack` |
 
 Customer cancellation fee and free window, commission, base/km/minute/minimum fares, demand multiplier, dispatch radii/timeouts are all configurable (Admin → Pricing / Settings).
 **Rules not yet implemented:** promo codes, peak-hour/surge automation, scheduled rides, delivery rules.

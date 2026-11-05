@@ -110,3 +110,15 @@ export function Legal() {
       {msg && <div className={msg === "Published" ? "muted" : "err"} role="status">{msg}</div>}
       <button className="btn" disabled={!body.trim()} onClick={() => void publish()}>Publish new version (audited)</button></div></>;
 }
+
+export function Deliveries() {
+  const [status, setStatus] = useState("");
+  const { data, error, loading } = useApi<Row[]>(`/admin/deliveries${status ? `?status=${status}` : ""}`, 10000);
+  return <><h1>Deliveries (Express)</h1>
+    <div className="row"><select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 240 }}>
+      {["", "SEARCHING_COURIER", "COURIER_ASSIGNED", "PICKED_UP", "DELIVERED", "CANCELLED", "EXPIRED"].map((s) => <option key={s} value={s}>{s || "All statuses"}</option>)}</select></div>
+    <Status error={error} loading={loading} />
+    <table><thead><tr><th>Created</th><th>Tracking</th><th>Status</th><th>Size</th><th>From → To</th><th>Customer</th><th>Courier</th><th>Fee</th><th>Payment</th></tr></thead><tbody>
+      {data?.map((d) => <tr key={d.id}><td>{when(d.created_at)}</td><td>{d.tracking_number}</td><td><Pill v={d.status === "DELIVERED" ? "PAID" : d.status} /></td><td>{d.size_class}</td>
+        <td>{d.pickup_address} → {d.dropoff_address}</td><td>{d.customer}</td><td>{d.courier ?? "—"}</td><td>{kzt(d.fee)}</td><td>{d.payment_method} {d.payment_status}</td></tr>)}</tbody></table></>;
+}

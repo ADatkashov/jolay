@@ -131,7 +131,7 @@ class _HomeState extends ConsumerState<HomeTab> {
           const SizedBox(width: 10),
           Expanded(child: _Tile(icon: Icons.delivery_dining, label: ref.t('home.delivery'), badge: ref.t('home.soon'))),
           const SizedBox(width: 10),
-          Expanded(child: _Tile(icon: Icons.inventory_2_outlined, label: ref.t('home.express'), badge: ref.t('home.soon'))),
+          Expanded(child: _Tile(icon: Icons.inventory_2_outlined, label: ref.t('home.express'), active: true, onTap: () => context.push('/express/new'))),
         ]),
         const SizedBox(height: 24),
         Text(ref.t('home.saved'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),

@@ -22,7 +22,8 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | WebSocket events with reconnect hints | 🟡 | event delivery after commit; no WS integration test |
 | Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
-| Delivery (food/grocery/parcel), partners, stores, products | ⛔ | not started |
+| JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; food/grocery delivery, partners, stores, products ⛔ |
+| Push notifications | 🧪 | localized texts + fan-out implemented; delivery is a DEV MOCK (`push_outbox`) until an FCM service account is configured; FCM adapter tested only against a local stub; apps do not register real device tokens yet |
 | SOS / complaints → incidents with staff notification, investigation history, admin handling | ✅ | apps also dial 112; no on-call schedule/SLA/escalation; trip sharing links and emergency contacts ⛔ |
 | Risk flags (7 rules, human review, no auto-suspension) | ✅ | thresholds are uncalibrated defaults |
 | FCM push, real SMS gateway | ⛔ | interfaces exist (`SmsSender`, `Notifier`) |
@@ -36,6 +37,17 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Partner portal | ⛔ |
 | Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |
 | Customer screens not built: Select Country picker, Delivery/Express flows, referral | ⛔ |
+
+## Mocks (owner's part — to be replaced when accounts/keys/contracts exist)
+| Area | What runs today | To go live |
+|---|---|---|
+| SMS / OTP | `LogSmsSender` (code in the log only when `JOLAY_SMS_LOG_CODE=true`) | provide a real `SmsSender` bean (gateway contract + credentials) |
+| Push | `DevPushSender` → `push_outbox`; `FcmPushSender` auto-activates with `JOLAY_FCM_SERVICE_ACCOUNT_FILE` | Firebase project, service account, `google-services.json` / APNs key, add `firebase_messaging` to the apps |
+| Maps / routing / geocoding | `EstimatedRouteProvider` (straight line × factor, flagged `ESTIMATED`), 12 seeded places, OSM dev tiles | licensed provider (Google/Mapbox/2GIS) behind `RouteProvider` + `TILE_URL` |
+| Card payments | `SandboxPaymentProvider` (signed callbacks, no real money; refused in `prod` unless explicitly allowed) | merchant contract + adapter (docs/PAYMENT_INTEGRATION.md) |
+| Bank payouts | finance transfers manually, records the reference | bank API / payout provider |
+| Legal texts | none (apps show "not published yet") | counsel's texts via Admin → Legal documents |
+| Store accounts / signing | debug signing | Google Play / Apple accounts and release keys |
 
 ## Known limitations
 * Map tiles default to public OpenStreetMap (dev only — policy forbids production use).

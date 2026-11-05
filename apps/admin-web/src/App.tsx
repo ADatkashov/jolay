@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ApiError, loadSession, login, saveSession, type Session } from "./lib/api";
 import { navFor } from "./lib/nav";
 import Overview from "./pages/Overview";
-import { Incidents, Payouts, RiskFlags, Legal } from "./pages/Ops";
+import { Deliveries, Incidents, Payouts, RiskFlags, Legal } from "./pages/Ops";
 import { Live, Rides, Drivers, Customers, Payments, Pricing, Support, Settings, Audit } from "./pages/Tables";
 
 export default function App() {
@@ -37,7 +37,7 @@ export function Shell({ session, onLogout }: { session: Session; onLogout: () =>
   const [page, setPage] = useState(items[0]?.id ?? "overview");
   const P: Record<string, JSX.Element> = {
     overview: <Overview />, live: <Live />, rides: <Rides />, drivers: <Drivers roles={roles} />, customers: <Customers roles={roles} />,
-    payments: <Payments />, incidents: <Incidents />, payouts: <Payouts />, risk: <RiskFlags />, legal: <Legal />, pricing: <Pricing roles={roles} />, support: <Support />, settings: <Settings />, audit: <Audit />,
+    payments: <Payments />, deliveries: <Deliveries />, incidents: <Incidents />, payouts: <Payouts />, risk: <RiskFlags />, legal: <Legal />, pricing: <Pricing roles={roles} />, support: <Support />, settings: <Settings />, audit: <Audit />,
   };
   return (
     <div className="app">

@@ -87,4 +87,16 @@ void main() {
     await t.pump();
     expect(api.calls, contains('POST /drivers/payouts'));
   });
+
+  testWidgets('profile switch tells the backend whether this driver accepts parcel deliveries', (t) async {
+    t.view.physicalSize = const Size(800, 2400); t.view.devicePixelRatio = 1.0; addTearDown(t.view.reset);
+    final api = FakeApi({'GET /drivers/me': {'verification': 'APPROVED', 'availability': 'OFFLINE', 'accepts_delivery': false, 'rating_avg': '5.0', 'rating_count': 0}, 'PUT /drivers/delivery': {'acceptsDelivery': true}});
+    await t.pumpWidget(app(const Scaffold(body: DriverProfile()), api));
+    await t.pump(); await t.pump();
+    final sw = find.byKey(const Key('accept-deliveries'));
+    await t.ensureVisible(sw);
+    await t.tap(sw);
+    await t.pump();
+    expect(api.calls, contains('PUT /drivers/delivery'));
+  });
 }
