@@ -59,6 +59,20 @@ void main() {
     final est = api.calls.firstWhere((c) => c.path == '/store-orders/estimate').body as Map;
     expect(est.containsKey('price') || est.containsKey('total'), isFalse);
     expect((est['items'] as List).single, {'productId': 'p1', 'quantity': 2});
+    expect(est['paymentMethod'], 'WALLET');
+    expect(find.text('Paid from your wallet. The money is held until the order is delivered.'), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('pay-CASH')));
+    await t.pump();
+    expect(find.text('You pay the courier on delivery. Large orders have a limit.'), findsOneWidget);
+    await t.enterText(find.byType(TextFormField).at(0), 'Aidar Bekov');
+    await t.enterText(find.byType(TextFormField).at(1), '+7 701 111 00 01');
+    await t.ensureVisible(find.byKey(const Key('place-order')));
+    await t.tap(find.byKey(const Key('place-order')));
+    await t.pump(); await t.pump();
+    final placed = api.calls.firstWhere((c) => c.method == 'POST' && c.path == '/store-orders');
+    expect((placed.body as Map)['paymentMethod'], 'CASH');
+    expect(placed.headers?['Idempotency-Key'], isNotEmpty);
   });
 
   testWidgets('order tracking shows status, handover code and a cancel button only while PLACED', (t) async {

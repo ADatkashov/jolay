@@ -142,6 +142,8 @@ public class DeliveryService {
         v.put("distanceM", m.get("est_distance_m")); v.put("durationS", m.get("est_duration_s")); v.put("fee", m.get("fee"));
         v.put("courierEarnings", courier || admin ? m.get("courier_earnings") : null);
         v.put("paymentMethod", m.get("payment_method")); v.put("paymentStatus", m.get("payment_status"));
+        if ("STORE_CASH".equals(m.get("payment_method")) && (courier || admin))   // the courier must know how much to collect
+            v.put("cashToCollect", jdbc.sql("SELECT items_total + delivery_fee FROM store_orders WHERE id=:s").param("s", m.get("store_order_id")).query(BigDecimal.class).optional().orElse(null));
         v.put("customerName", m.get("customer_name")); v.put("createdAt", m.get("created_at")); v.put("deliveredAt", m.get("delivered_at"));
         v.put("rating", m.get("stars"));
         if (m.get("courier_id") != null)
@@ -243,6 +245,11 @@ public class DeliveryService {
         BigDecimal fee = (BigDecimal) d.get("fee"), commission = (BigDecimal) d.get("commission"), earnings = (BigDecimal) d.get("courier_earnings");
         if ("PREPAID".equals(d.get("payment_method"))) {      // store order: the escrow is split between partner, courier and platform
             storeSettlement.settleDelivered((UUID) d.get("store_order_id"), courierId);
+            return;
+        }
+        if ("STORE_CASH".equals(d.get("payment_method"))) {   // store order paid in cash: the courier collected the total
+            storeSettlement.settleDeliveredCash((UUID) d.get("store_order_id"), courierId);
+            jdbc.sql("UPDATE delivery_orders SET payment_status='PAID' WHERE id=:id").param("id", id).update();
             return;
         }
         UUID cAcc = ledger.userAccount(courierId, "DRIVER_WALLET");
