@@ -8,6 +8,7 @@ import kz.jolay.geography.EstimatedRouteProvider;
 import kz.jolay.geography.GeoService;
 import kz.jolay.notifications.Notifier;
 import kz.jolay.rides.RideDtos.LocationRequest;
+import kz.jolay.risk.RiskService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,9 @@ public class DriverService {
     private final GeoService geo;
     private final Notifier notifier;
     private final AppSettings settings;
+    private final RiskService risk;
 
-    public DriverService(JdbcClient jdbc, GeoService geo, Notifier notifier, AppSettings settings) { this.jdbc = jdbc; this.geo = geo; this.notifier = notifier; this.settings = settings; }
+    public DriverService(JdbcClient jdbc, GeoService geo, Notifier notifier, AppSettings settings, RiskService risk) { this.jdbc = jdbc; this.geo = geo; this.notifier = notifier; this.settings = settings; this.risk = risk; }
 
     @Transactional
     public void register(UUID userId, DriverRegisterRequest r) {
@@ -78,7 +80,7 @@ public class DriverService {
     }
 
     /** Validates and stores a location. Rejects impossible jumps (>220 km/h) so spoofed/glitched fixes can't win dispatch. */
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)   // the rejected-jump risk event must be kept
     public void updateLocation(UUID userId, LocationRequest r) {
         var d = jdbc.sql("SELECT availability, verification FROM drivers WHERE user_id=:u").param("u", userId).query().listOfRows().stream().findFirst()
                 .orElseThrow(() -> ApiException.notFound("driver_not_registered", "Driver profile not found"));
@@ -89,7 +91,7 @@ public class DriverService {
         if (prev.isPresent()) {
             double dist = EstimatedRouteProvider.haversineM((Double) prev.get().get("lat"), (Double) prev.get().get("lng"), p.lat(), p.lng());
             double secs = Math.max(1.0, ((Number) prev.get().get("age")).doubleValue());
-            if (dist / secs * 3.6 > 220 && dist > 500) throw ApiException.badRequest("implausible_location", "Location jump rejected");
+            if (dist / secs * 3.6 > 220 && dist > 500) { risk.onGpsJump(userId); throw ApiException.badRequest("implausible_location", "Location jump rejected"); }
         }
         jdbc.sql("""
                 INSERT INTO driver_locations(driver_id, location, heading, speed_kmh, updated_at)

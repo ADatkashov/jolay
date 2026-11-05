@@ -1,6 +1,7 @@
 package kz.jolay.notifications;
 
 import kz.jolay.common.Auth;
+import kz.jolay.risk.RiskService;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,7 +13,8 @@ import java.util.UUID;
 @RequestMapping("/api/v1/notifications")
 public class NotificationController {
     private final JdbcClient jdbc;
-    public NotificationController(JdbcClient jdbc) { this.jdbc = jdbc; }
+    private final RiskService risk;
+    public NotificationController(JdbcClient jdbc, RiskService risk) { this.jdbc = jdbc; this.risk = risk; }
 
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(defaultValue = "50") int limit) {
@@ -31,5 +33,6 @@ public class NotificationController {
         if (token == null || token.isBlank() || token.length() > 300) return;
         jdbc.sql("INSERT INTO user_devices(user_id,push_token,platform) VALUES (:u,:t,:p) ON CONFLICT (user_id,push_token) DO UPDATE SET updated_at=now()")
                 .param("u", Auth.id()).param("t", token).param("p", platform).update();
+        risk.onDeviceRegistered(Auth.id(), token);
     }
 }

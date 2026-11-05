@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kz.jolay.common.ApiException;
 import kz.jolay.common.Money;
 import kz.jolay.notifications.Notifier;
+import kz.jolay.risk.RiskService;
 import kz.jolay.wallet.LedgerService;
 import kz.jolay.wallet.LedgerService.Leg;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -30,9 +31,11 @@ public class PaymentService {
     private final Map<String, PaymentProvider> providers;
     private final String defaultProvider;
     private final MeterRegistry metrics;
+    private final RiskService risk;
 
     public PaymentService(JdbcClient jdbc, LedgerService ledger, Notifier notifier, ObjectMapper mapper, List<PaymentProvider> providers,
-                          @Value("${jolay.payments.provider}") String defaultProvider, MeterRegistry metrics) {
+                          @Value("${jolay.payments.provider}") String defaultProvider, MeterRegistry metrics, RiskService risk) {
+        this.risk = risk;
         this.jdbc = jdbc; this.ledger = ledger; this.notifier = notifier; this.mapper = mapper; this.defaultProvider = defaultProvider; this.metrics = metrics;
         this.providers = providers.stream().collect(java.util.stream.Collectors.toMap(PaymentProvider::name, p -> p));
     }
@@ -175,7 +178,7 @@ public class PaymentService {
         if (eventId == null || ref == null || status == null) throw ApiException.badRequest("malformed_request", "Missing fields");
 
         int fresh = jdbc.sql("INSERT INTO payment_webhook_events(provider,event_id) VALUES (:p,:e) ON CONFLICT DO NOTHING").param("p", providerName).param("e", eventId).update();
-        if (fresh == 0) return "duplicate";
+        if (fresh == 0) { risk.onDuplicateCallback(providerName, ref); return "duplicate"; }
 
         var pay = jdbc.sql("SELECT id,user_id,purpose,ride_id,amount,status FROM payment_transactions WHERE provider=:p AND provider_ref=:r FOR UPDATE")
                 .param("p", providerName).param("r", ref).query().listOfRows().stream().findFirst().orElse(null);
@@ -251,6 +254,7 @@ public class PaymentService {
         UUID refundId = jdbc.sql("INSERT INTO payment_refunds(payment_id,amount,reason,requested_by,ledger_transaction_id) VALUES (:p,:a,:r,:u,:t) RETURNING id")
                 .param("p", paymentId).param("a", amount).param("r", reason).param("u", adminId).param("t", txId).query(UUID.class).single();
         jdbc.sql("UPDATE payment_transactions SET status='REFUNDED', updated_at=now() WHERE id=:id").param("id", paymentId).update();
+        risk.onRefund((UUID) pay.get("user_id"));
         notifier.notify((UUID) pay.get("user_id"), "PAYMENT_STATUS_UPDATED", "payment-" + paymentId + "-refund", Map.of("paymentId", paymentId.toString(), "paymentStatus", "REFUNDED"));
         return refundId;
     }

@@ -51,8 +51,8 @@ public abstract class IntegrationTestBase {
                 if (dataSource instanceof com.zaxxer.hikari.HikariDataSource h) h.getHikariPoolMXBean().softEvictConnections(); }
         }
         jdbc.sql("TRUNCATE users RESTART IDENTITY CASCADE").update();
-        jdbc.sql("TRUNCATE audit_logs, notifications, ledger_transactions, payment_webhook_events RESTART IDENTITY CASCADE").update();
-        jdbc.sql("INSERT INTO accounts(type) VALUES ('PLATFORM_REVENUE'),('EXTERNAL_CARD'),('EXTERNAL_CASH'),('PROMO')").update();
+        jdbc.sql("TRUNCATE audit_logs, notifications, ledger_transactions, payment_webhook_events, legal_documents RESTART IDENTITY CASCADE").update();
+        jdbc.sql("INSERT INTO accounts(type) VALUES ('PLATFORM_REVENUE'),('EXTERNAL_CARD'),('EXTERNAL_CASH'),('PROMO'),('PAYOUT_CLEARING'),('EXTERNAL_BANK')").update();
         jdbc.sql("UPDATE pricing_rules SET demand_multiplier=1.00, active=true").update();
         TestConfig.OTPS.clear();
     }
@@ -135,6 +135,25 @@ public abstract class IntegrationTestBase {
     }
 
     protected BigDecimal balance(Session s) { return new BigDecimal(get("/api/v1/wallet", s.token()).s("balance")); }
+
+    /** Requests a ride, has the (already online) driver accept it and drives it to completion. Returns the ride id. */
+    protected String completeRide(Session c, Session d, String payment) {
+        jdbc.sql("UPDATE driver_locations SET location = ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography, updated_at = now() WHERE driver_id=:d").param("lng", PICKUP[1] + 0.0003).param("lat", PICKUP[0] + 0.0003).param("d", d.id()).update();
+        String rideId = requestRide(c, "ECONOMY", payment).s("id");
+        String offer = currentOfferId(d);
+        if (offer == null) throw new IllegalStateException("driver has no offer");
+        post("/api/v1/drivers/offers/" + offer + "/accept", d.token(), null);
+        post("/api/v1/drivers/rides/" + rideId + "/en-route", d.token(), null);
+        jdbc.sql("UPDATE driver_locations SET location = ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography, updated_at = now() WHERE driver_id=:d").param("lng", PICKUP[1]).param("lat", PICKUP[0]).param("d", d.id()).update();
+        post("/api/v1/drivers/rides/" + rideId + "/arrived", d.token(), null);
+        post("/api/v1/drivers/rides/" + rideId + "/start", d.token(), null);
+        jdbc.sql("UPDATE driver_locations SET location = ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography, updated_at = now() WHERE driver_id=:d").param("lng", 76.93).param("lat", 43.22).param("d", d.id()).update();
+        moveDriver(d, 43.2200, 76.9301);
+        jdbc.sql("UPDATE driver_locations SET location = ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography, updated_at = now() WHERE driver_id=:d").param("lng", DROPOFF[1]).param("lat", DROPOFF[0]).param("d", d.id()).update();
+        Resp done = post("/api/v1/drivers/rides/" + rideId + "/complete", d.token(), null);
+        if (done.status() != 200) throw new IllegalStateException("complete failed " + done.body());
+        return rideId;
+    }
 
     /** Money invariant: every ledger transaction is balanced, so all account balances sum to exactly zero. */
     protected void assertLedgerBalanced() {
