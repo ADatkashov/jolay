@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jolay_core/jolay_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('kk, ru and en define exactly the same keys (no untranslated strings)', () {
@@ -60,4 +61,33 @@ void main() {
     expect(t.colorScheme.primary, JolayColors.yellow);
     expect(t.scaffoldBackgroundColor, JolayColors.cloud);
   });
+
+  group('push registration', () {
+    test('mock source gives a stable token and the backend call carries it; failures never throw', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
+      final api = _RecordingApi();
+      await registerPushToken(api, MockPushTokenSource());
+      await registerPushToken(api, MockPushTokenSource());
+      expect(api.calls.length, 2);
+      expect(api.calls.first.$1, '/notifications/devices');
+      final a = api.calls[0].$2 as Map, b = api.calls[1].$2 as Map;
+      expect(a['pushToken'], b['pushToken']);
+      expect((a['pushToken'] as String).startsWith('mock-'), isTrue);
+      expect(a['platform'], 'mock');
+      api.fail = true;
+      await registerPushToken(api, MockPushTokenSource());   // must not throw
+    });
+  });
+}
+
+class _RecordingApi extends ApiClient {
+  final calls = <(String, Object?)>[];
+  bool fail = false;
+  @override
+  Future<dynamic> request(String method, String path, {Object? body, Map<String, dynamic>? query, Map<String, String>? headers, bool auth = true, bool retry = true}) async {
+    calls.add((path, body));
+    if (fail) throw Exception('offline');
+    return null;
+  }
 }

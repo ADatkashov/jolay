@@ -17,13 +17,13 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Ledger (double entry, append-only, idempotent, DB-enforced immutability) | ✅ | |
 | Wallet top-up, wallet/cash/card ride settlement, refunds | ✅ | against the **sandbox** gateway 🧪 |
 | Payment webhooks: HMAC verification, dedupe, amount check | ✅ | real providers (Kaspi / FreedomPay) ⛔ — need merchant contracts |
-| Driver payouts (hold → paid/rejected through the ledger), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
+| Driver and partner payouts (hold → paid/rejected through the ledger; V9), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
 | Ratings, support tickets/chat (REST + notification event), notifications (dedupe), audit log | ✅ | |
 | WebSocket events with reconnect hints | 🟡 | event delivery after commit; no WS integration test |
 | Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
 | JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; |
-| Push notifications | 🧪 | localized texts + fan-out implemented; delivery is a DEV MOCK (`push_outbox`) until an FCM service account is configured; FCM adapter tested only against a local stub; apps do not register real device tokens yet |
+| Push notifications | 🧪 | localized texts + fan-out implemented; delivery is a DEV MOCK (`push_outbox`) until an FCM service account is configured; FCM adapter tested only against a local stub; apps register a MOCK per-install token (`MockPushTokenSource`, platform `mock`) after sign-in; a Firebase-backed `PushTokenSource` is still to be supplied |
 | SOS / complaints → incidents with staff notification, investigation history, admin handling | ✅ | apps also dial 112; no on-call schedule/SLA/escalation; trip sharing links and emergency contacts ⛔ |
 | Risk flags (7 rules, human review, no auto-suspension) | ✅ | thresholds are uncalibrated defaults |
 | FCM push, real SMS gateway | ⛔ | interfaces exist (`SmsSender`, `Notifier`) |
@@ -43,7 +43,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Area | What runs today | To go live |
 |---|---|---|
 | SMS / OTP | `LogSmsSender` (code in the log only when `JOLAY_SMS_LOG_CODE=true`) | provide a real `SmsSender` bean (gateway contract + credentials) |
-| Push | `DevPushSender` → `push_outbox`; `FcmPushSender` auto-activates with `JOLAY_FCM_SERVICE_ACCOUNT_FILE` | Firebase project, service account, `google-services.json` / APNs key, add `firebase_messaging` to the apps |
+| Push | `DevPushSender` → `push_outbox`; `FcmPushSender` auto-activates with `JOLAY_FCM_SERVICE_ACCOUNT_FILE` | Firebase project, service account, `google-services.json` / APNs key; implement `PushTokenSource` with `firebase_messaging` and override `pushTokenSourceProvider` in each app's main() |
 | Maps / routing / geocoding | `EstimatedRouteProvider` (straight line × factor, flagged `ESTIMATED`), 12 seeded places, OSM dev tiles | licensed provider (Google/Mapbox/2GIS) behind `RouteProvider` + `TILE_URL` |
 | Card payments | `SandboxPaymentProvider` (signed callbacks, no real money; refused in `prod` unless explicitly allowed) | merchant contract + adapter (docs/PAYMENT_INTEGRATION.md) |
 | Bank payouts | finance transfers manually, records the reference | bank API / payout provider |

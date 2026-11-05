@@ -66,15 +66,15 @@ export function Payouts() {
   const { data, error, loading, reload } = useApi<Row[]>(`/admin/payouts${status ? `?status=${status}` : ""}`);
   const [msg, setMsg] = useState("");
   const run = async (fn: () => Promise<unknown>) => { try { await fn(); setMsg(""); reload(); } catch (e) { setMsg(errMsg(e)); } };
-  return <><h1>Driver payouts</h1>
+  return <><h1>Driver &amp; partner payouts</h1>
     <p className="muted">"Mark paid" records the bank reference after you have made the transfer outside the system. Requested funds are already held in the ledger.</p>
     <div className="row"><select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 220 }}>{["", "REQUESTED", "PAID", "REJECTED"].map((s) => <option key={s} value={s}>{s || "All"}</option>)}</select></div>
     {msg && <div className="err" role="alert">{msg}</div>}<Status error={error} loading={loading} />
-    <table><thead><tr><th>Requested</th><th>Driver</th><th>Destination</th><th>Amount</th><th>Status</th><th>Reference / note</th><th /></tr></thead><tbody>
-      {data?.map((p) => <tr key={p.id}><td>{when(p.created_at)}</td><td>{p.driver}<div className="muted">{p.phone}</div></td><td>{p.destination}</td><td>{kzt(p.amount)}</td><td><Pill v={p.status} /></td><td>{p.reference ?? p.note ?? ""}</td>
+    <table><thead><tr><th>Requested</th><th>Payee</th><th>Destination</th><th>Amount</th><th>Status</th><th>Reference / note</th><th /></tr></thead><tbody>
+      {data?.map((p) => <tr key={p.id}><td>{when(p.created_at)}</td><td>{p.driver}<div className="muted">{p.phone} · {p.wallet_type === "PARTNER_WALLET" ? "partner" : "driver"}</div></td><td>{p.destination}</td><td>{kzt(p.amount)}</td><td><Pill v={p.status} /></td><td>{p.reference ?? p.note ?? ""}</td>
         <td className="row">{p.status === "REQUESTED" && <>
           <button className="btn" onClick={() => { const reference = window.prompt("Bank transfer reference:"); if (reference) void run(() => api("POST", `/admin/payouts/${p.id}/pay`, { reference })); }}>Mark paid</button>
-          <button className="btn ghost" onClick={() => { const reason = window.prompt("Rejection reason (the amount returns to the driver wallet):"); if (reason) void run(() => api("POST", `/admin/payouts/${p.id}/reject`, { reason })); }}>Reject</button></>}</td></tr>)}</tbody></table></>;
+          <button className="btn ghost" onClick={() => { const reason = window.prompt("Rejection reason (the amount returns to the payee's wallet):"); if (reason) void run(() => api("POST", `/admin/payouts/${p.id}/reject`, { reason })); }}>Reject</button></>}</td></tr>)}</tbody></table></>;
 }
 
 export function RiskFlags() {

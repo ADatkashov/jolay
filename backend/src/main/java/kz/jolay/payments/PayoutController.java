@@ -31,12 +31,20 @@ public class PayoutController {
 
     @GetMapping("/drivers/payouts") @PreAuthorize("hasRole('DRIVER')")
     public List<Map<String, Object>> mine() {
-        return jdbc.sql("SELECT id, amount, status, reference, note, created_at, reviewed_at, '****' || right(destination, 4) AS destination FROM payouts WHERE driver_id=:d ORDER BY created_at DESC LIMIT 50").param("d", Auth.id()).query().listOfRows();
+        return jdbc.sql("SELECT id, amount, status, reference, note, created_at, reviewed_at, '****' || right(destination, 4) AS destination FROM payouts WHERE driver_id=:d AND wallet_type='DRIVER_WALLET' ORDER BY created_at DESC LIMIT 50").param("d", Auth.id()).query().listOfRows();
+    }
+
+    @PostMapping("/partner/payouts") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasRole('PARTNER')")
+    public Map<String, Object> requestPartner(@Valid @RequestBody PayoutRequest r) { return Map.of("id", payouts.request(Auth.id(), r.amount(), r.destination(), "PARTNER_WALLET"), "status", "REQUESTED"); }
+
+    @GetMapping("/partner/payouts") @PreAuthorize("hasRole('PARTNER')")
+    public List<Map<String, Object>> minePartner() {
+        return jdbc.sql("SELECT id, amount, status, reference, note, created_at, reviewed_at, '****' || right(destination, 4) AS destination FROM payouts WHERE driver_id=:d AND wallet_type='PARTNER_WALLET' ORDER BY created_at DESC LIMIT 50").param("d", Auth.id()).query().listOfRows();
     }
 
     @GetMapping("/admin/payouts") @PreAuthorize("hasAnyRole('SUPER_ADMIN','FINANCE_ADMIN')")
     public List<Map<String, Object>> list(@RequestParam(required = false) String status) {
-        return jdbc.sql("SELECT p.id, p.amount, p.status, p.destination, p.reference, p.note, p.created_at, p.reviewed_at, u.full_name AS driver, u.phone FROM payouts p JOIN users u ON u.id=p.driver_id WHERE (:s::text IS NULL OR p.status=:s) ORDER BY (p.status='REQUESTED') DESC, p.created_at DESC LIMIT 200")
+        return jdbc.sql("SELECT p.id, p.amount, p.status, p.destination, p.reference, p.note, p.created_at, p.reviewed_at, u.full_name AS driver, u.phone, p.wallet_type FROM payouts p JOIN users u ON u.id=p.driver_id WHERE (:s::text IS NULL OR p.status=:s) ORDER BY (p.status='REQUESTED') DESC, p.created_at DESC LIMIT 200")
                 .param("s", status).query().listOfRows();
     }
 
