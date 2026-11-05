@@ -4,6 +4,7 @@ import { navFor } from "./lib/nav";
 import Overview from "./pages/Overview";
 import { Deliveries, Partners, StoreOrders, Incidents, Payouts, RiskFlags, Legal } from "./pages/Ops";
 import Security from "./pages/Security";
+import { useApi } from "./pages/hooks";
 import { Live, Rides, Drivers, Customers, Payments, Pricing, Support, Settings, Audit } from "./pages/Tables";
 
 export default function App() {
@@ -41,6 +42,8 @@ export function Shell({ session, onLogout }: { session: Session; onLogout: () =>
   const roles = session.user.roles;
   const items = navFor(roles);
   const [page, setPage] = useState(items[0]?.id ?? "overview");
+  const mfa = useApi<{ enrolmentRequired?: boolean }>("/account/mfa");
+  const mustEnrol = mfa.data?.enrolmentRequired === true;
   const P: Record<string, JSX.Element> = {
     overview: <Overview />, live: <Live />, rides: <Rides />, drivers: <Drivers roles={roles} />, customers: <Customers roles={roles} />,
     payments: <Payments />, deliveries: <Deliveries />, partners: <Partners roles={roles} />, storeorders: <StoreOrders />, incidents: <Incidents />, payouts: <Payouts />, risk: <RiskFlags />, legal: <Legal />, pricing: <Pricing roles={roles} />, security: <Security />, support: <Support />, settings: <Settings />, audit: <Audit />,
@@ -49,10 +52,12 @@ export function Shell({ session, onLogout }: { session: Session; onLogout: () =>
     <div className="app">
       <nav className="side">
         <div className="brand">JOLAY<span>.</span></div>
-        {items.map((n) => <button key={n.id} className={n.id === page ? "active" : ""} onClick={() => setPage(n.id)}>{n.label}</button>)}
+        {(mustEnrol ? items.filter((n) => n.id === "security") : items).map((n) => <button key={n.id} className={n.id === page ? "active" : ""} onClick={() => setPage(n.id)}>{n.label}</button>)}
         <div className="who">{session.user.fullName}<br />{roles.join(", ")}<br /><button onClick={onLogout}>Sign out</button></div>
       </nav>
-      <main>{P[page]}</main>
+      <main>{mustEnrol
+        ? <><div className="err" role="alert">Two-factor authentication is required for your role. Set it up to continue; everything else is locked until then.</div><Security onChange={mfa.reload} /></>
+        : P[page]}</main>
     </div>
   );
 }

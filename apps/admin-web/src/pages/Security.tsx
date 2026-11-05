@@ -6,7 +6,7 @@ const errMsg = (e: unknown) => (e instanceof ApiError ? e.message : "Network err
 
 interface MfaStatus { enabled: boolean; recoveryCodesLeft: number }
 
-export default function Security() {
+export default function Security({ onChange }: { onChange?: () => void } = {}) {
   const { data, error, loading, reload } = useApi<MfaStatus>("/account/mfa");
   const [setup, setSetup] = useState<{ secret: string; otpauthUri: string } | null>(null);
   const [code, setCode] = useState(""); const [pw, setPw] = useState(""); const [codes, setCodes] = useState<string[] | null>(null); const [msg, setMsg] = useState("");
@@ -26,7 +26,7 @@ export default function Security() {
       <p className="muted">Or open this link on the device with the app: <a href={setup.otpauthUri}>setup link</a></p>
       <p>2. Enter the 6-digit code it shows:</p>
       <div className="row"><input aria-label="Confirmation code" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" maxLength={6} style={{ width: 140 }} />
-        <button className="btn" onClick={() => run(async () => { const r = await api<{ recoveryCodes: string[] }>("POST", "/account/mfa/enable", { code }); setCodes(r.recoveryCodes); setSetup(null); setCode(""); reload(); })}>Turn on</button></div></div>}
+        <button className="btn" onClick={() => run(async () => { const r = await api<{ recoveryCodes: string[] }>("POST", "/account/mfa/enable", { code }); setCodes(r.recoveryCodes); setSetup(null); setCode(""); reload(); onChange?.(); })}>Turn on</button></div></div>}
     {data?.enabled && <div className="card">
       <p><b>Two-factor authentication is on.</b> {data.recoveryCodesLeft} recovery codes left.</p>
       <h3>Turn off</h3>
