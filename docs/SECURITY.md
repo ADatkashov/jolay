@@ -15,6 +15,8 @@
 
 * Startup guard (`ProductionSafetyCheck`): the `prod` profile refuses to start with the default JWT secret, OTP logging, or the sandbox payment gateway. Swagger is disabled and `/actuator/*` moves to a private management port (8081) in `prod`.
 
+* Safety & fraud: SOS/incident handling is audited (views, notes, resolution); risk flags are review-only and never change accounts automatically; payouts and refunds are ledger-backed, role-restricted and audited; reconciliation runs hourly.
+
 ## Known gaps — do before production
 * Rate limiting is per instance (`RateLimitFilter`: auth endpoints per IP, API per user). Add a global limit at the gateway/ingress.
 * Login lockout is per-instance memory; move to the DB/Redis for multi-replica.

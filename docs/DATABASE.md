@@ -3,6 +3,7 @@
 PostgreSQL 16 + PostGIS 3, schema managed by Flyway (`backend/src/main/resources/db/migration`).
 * `V1__core_schema.sql` – all tables, constraints, indexes, immutability triggers.
 * `V3__dispatch_pool_setting.sql`, `V4__driver_locations_tuning.sql` – KNN candidate pool setting; `driver_locations` UNLOGGED + fillfactor/autovacuum tuning (audit).
+* `V5__safety_payouts_risk_legal.sql` – payout accounts + columns, incidents/incident_events, risk_events/risk_flags, legal_documents, `rides.route_line`, new settings.
 * `V2__reference_data.sql` – Almaty city/zone, 4 vehicle categories, launch tariffs, dispatch settings, system ledger accounts, 12 landmarks.
 
 Geography columns use `GEOGRAPHY(Point|Polygon, 4326)` with GiST indexes (`driver_locations`, `service_zones`, `places`).

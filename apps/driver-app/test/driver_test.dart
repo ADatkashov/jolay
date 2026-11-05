@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jolay_core/jolay_core.dart';
 import 'package:jolay_driver/src/data.dart';
 import 'package:jolay_driver/src/home.dart';
+import 'package:jolay_driver/src/payouts.dart';
 
 class FakeApi extends ApiClient {
   final Map<String, Object?> responses;
@@ -65,5 +66,25 @@ void main() {
     await t.pump(); await t.pump();
     expect(find.textContaining(RegExp(r'4[\s  ]250')), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
+  });
+
+  testWidgets('payout request validates locally and posts amount and destination; history shows backend status', (t) async {
+    t.view.physicalSize = const Size(800, 1800); t.view.devicePixelRatio = 1.0; addTearDown(t.view.reset);
+    final api = FakeApi({
+      'GET /wallet': {'balance': '8200.00', 'currency': 'KZT'},
+      'GET /drivers/payouts': [{'id': 'p1', 'amount': '5000.00', 'status': 'PAID', 'destination': '****1234', 'created_at': '2026-11-04T10:30:00Z'}],
+      'POST /drivers/payouts': {'id': 'p2', 'status': 'REQUESTED'},
+    });
+    await t.pumpWidget(app(const PayoutsScreen(), api));
+    await t.pump(); await t.pump();
+    expect(find.text('Paid'), findsOneWidget);
+    await t.tap(find.byKey(const Key('payout-submit')));
+    await t.pump();
+    expect(api.calls.where((c) => c == 'POST /drivers/payouts'), isEmpty, reason: 'invalid form is not sent');
+    await t.enterText(find.byKey(const Key('payout-amount')), '5000');
+    await t.enterText(find.byKey(const Key('payout-destination')), 'KZ12 3456 7890 1234');
+    await t.tap(find.byKey(const Key('payout-submit')));
+    await t.pump();
+    expect(api.calls, contains('POST /drivers/payouts'));
   });
 }

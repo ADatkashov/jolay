@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:jolay_core/jolay_core.dart';
 
 import 'screens/auth_screens.dart';
+import 'screens/legal_screen.dart';
 import 'screens/onboarding.dart';
 import 'screens/ride_screens.dart';
 import 'screens/shell.dart';
@@ -16,7 +17,7 @@ class _AuthRefresh extends ChangeNotifier {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = _AuthRefresh(ref);
-  const publicPaths = {'/splash', '/welcome', '/signup', '/otp', '/login', '/forgot', '/reset'};
+  const publicPaths = {'/splash', '/welcome', '/signup', '/otp', '/login', '/forgot', '/reset', '/legal/TERMS', '/legal/PRIVACY'};
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: refresh,
@@ -25,7 +26,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       if (status == AuthStatus.unknown) return loc == '/splash' ? null : '/splash';
       if (status == AuthStatus.signedOut && !publicPaths.contains(loc)) return '/welcome';
-      if (status == AuthStatus.signedIn && (publicPaths.contains(loc))) return '/home';
+      if (status == AuthStatus.signedIn && publicPaths.contains(loc) && !loc.startsWith('/legal')) return '/home';
       return null;
     },
     routes: [
@@ -40,6 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/ride/destination', builder: (_, _) => const DestinationScreen()),
       GoRoute(path: '/ride/options', builder: (_, _) => const RideOptionsScreen()),
       GoRoute(path: '/ride/:id', builder: (_, s) => RideTrackScreen(rideId: s.pathParameters['id']!)),
+      GoRoute(path: '/legal/:type', builder: (_, s) => LegalScreen(type: s.pathParameters['type']!)),
       GoRoute(path: '/support', builder: (_, _) => const SupportListScreen()),
       GoRoute(path: '/support/:id', builder: (_, s) => SupportChatScreen(ticketId: s.pathParameters['id']!, subject: s.extra as String? ?? '')),
     ],

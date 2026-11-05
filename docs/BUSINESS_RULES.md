@@ -21,5 +21,11 @@
 | 17 | A customer can rate a completed ride once; rating updates the driver's running average | `RideService.rate` |
 | 18 | Ride addresses must lie inside an active service zone of the same city | `GeoService.cityFor` |
 
+| 19 | Driver payout: needs APPROVED driver, amount ≥ `payouts.min_amount`, ≤ wallet balance, one open request per driver; funds are held in `PAYOUT_CLEARING` at request time, released on reject, moved to `EXTERNAL_BANK` when finance marks it paid | `PayoutService` |
+| 20 | An SOS creates a CRITICAL incident, links the active ride and counterpart, notifies all SUPPORT/OPERATIONS/SUPER staff; repeated SOS within 30 min reuses the open incident | `IncidentController` |
+| 21 | Risk flags are advisory: no automatic suspension, blocking or charging; each decision needs a note and is audited | `RiskService`, `RiskController` |
+| 22 | Raw GPS points are deleted after `rides.raw_track_retention_days` (14); the simplified route stays | `TrackRetentionJob` |
+| 23 | Legal texts are versioned and published only by SUPER_ADMIN; none is pre-filled | `LegalController` |
+
 Customer cancellation fee and free window, commission, base/km/minute/minimum fares, demand multiplier, dispatch radii/timeouts are all configurable (Admin → Pricing / Settings).
-**Rules not yet implemented:** promo codes, peak-hour/surge automation, driver payouts, scheduled rides, delivery rules.
+**Rules not yet implemented:** promo codes, peak-hour/surge automation, scheduled rides, delivery rules.
