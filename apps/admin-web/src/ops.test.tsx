@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Incidents } from "./pages/Ops";
+import { Deliveries, Incidents } from "./pages/Ops";
 
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
 
@@ -38,5 +38,15 @@ describe("Incidents page", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(json({ code: "forbidden", message: "Access denied" }, 403));
     render(<Incidents />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Access denied");
+  });
+});
+
+describe("Deliveries page", () => {
+  it("lists parcel orders from the backend with their tracking numbers and payment state", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(json([{ id: "d1", tracking_number: "JLABCD2345", status: "PICKED_UP", size_class: "SMALL", fee: "900.00", payment_method: "CASH", payment_status: "NONE", pickup_address: "Dostyk", dropoff_address: "Mega", created_at: "2026-11-04T10:30:00Z", customer: "Aidar", courier: "Ahmed" }]));
+    render(<Deliveries />);
+    expect(await screen.findByText("JLABCD2345")).toBeInTheDocument();
+    expect(screen.getByText("Ahmed")).toBeInTheDocument();
+    expect(screen.getByText("CASH NONE")).toBeInTheDocument();
   });
 });

@@ -47,7 +47,7 @@ public class DriverService {
 
     public Map<String, Object> me(UUID userId) {
         var d = jdbc.sql("""
-                SELECT d.verification, d.availability, d.rating_avg, d.rating_count, d.rejection_reason, d.offers_total, d.offers_accepted, u.full_name, u.phone
+                SELECT d.verification, d.availability, d.accepts_delivery, d.rating_avg, d.rating_count, d.rejection_reason, d.offers_total, d.offers_accepted, u.full_name, u.phone
                 FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.user_id=:u""").param("u", userId).query().listOfRows().stream().findFirst()
                 .orElseThrow(() -> ApiException.notFound("driver_not_registered", "Driver profile not found"));
         var veh = jdbc.sql("SELECT id, brand, model, year, color, plate, category_code, approved FROM vehicles WHERE driver_id=:u AND active ORDER BY created_at LIMIT 1").param("u", userId).query().listOfRows();
@@ -100,6 +100,9 @@ public class DriverService {
                 .param("u", userId).param("lng", p.lng()).param("lat", p.lat()).param("h", r.heading()).param("s", r.speedKmh()).update();
         // Active ride: record the track while the trip is running and stream the position to the customer.
         var ride = jdbc.sql("SELECT id, customer_id, status FROM rides WHERE driver_id=:u AND status IN ('DRIVER_ASSIGNED','DRIVER_ARRIVING','DRIVER_ARRIVED','IN_PROGRESS')").param("u", userId).query().listOfRows().stream().findFirst();
+        // Active parcel delivery: stream the courier position to the sender.
+        jdbc.sql("SELECT id, customer_id FROM delivery_orders WHERE courier_id=:u AND status IN ('COURIER_ASSIGNED','PICKED_UP')").param("u", userId).query().listOfRows().stream().findFirst()
+                .ifPresent(dl -> notifier.event((UUID) dl.get("customer_id"), "DELIVERY_COURIER_LOCATION", Map.of("deliveryId", dl.get("id").toString(), "lat", p.lat(), "lng", p.lng())));
         if (ride.isPresent()) {
             if ("IN_PROGRESS".equals(ride.get().get("status")))
                 jdbc.sql("INSERT INTO ride_locations(ride_id, location) VALUES (:r, ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography)").param("r", ride.get().get("id")).param("lng", p.lng()).param("lat", p.lat()).update();

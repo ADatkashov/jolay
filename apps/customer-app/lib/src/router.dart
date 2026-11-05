@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:jolay_core/jolay_core.dart';
 
 import 'screens/auth_screens.dart';
+import 'screens/express_screens.dart';
 import 'screens/legal_screen.dart';
 import 'screens/onboarding.dart';
 import 'screens/ride_screens.dart';
@@ -38,6 +39,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/forgot', builder: (_, _) => const ForgotScreen()),
       GoRoute(path: '/reset', builder: (_, s) => ResetScreen(identifier: s.extra as String)),
       GoRoute(path: '/home', builder: (_, _) => const Shell()),
+      GoRoute(path: '/express/new', builder: (_, _) => const ExpressCreateScreen()),
+      GoRoute(path: '/express/:id', builder: (_, s) => ExpressTrackScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/ride/destination', builder: (_, _) => const DestinationScreen()),
       GoRoute(path: '/ride/options', builder: (_, _) => const RideOptionsScreen()),
       GoRoute(path: '/ride/:id', builder: (_, s) => RideTrackScreen(rideId: s.pathParameters['id']!)),

@@ -158,7 +158,7 @@ class DriverHome extends ConsumerStatefulWidget {
 
 class _HomeState extends ConsumerState<DriverHome> {
   bool _online = false, _busy = false;
-  Map<String, dynamic>? _offer, _ride;
+  Map<String, dynamic>? _offer, _ride, _dOffer, _delivery;
   Timer? _poll, _tick;
   int _left = 0;
   LatLng? _pos;
@@ -171,7 +171,7 @@ class _HomeState extends ConsumerState<DriverHome> {
     _online = a == 'ONLINE' || a == 'OFFERED' || a == 'BUSY';
     if (_online) _startWork(resume: true);
     _poll = Timer.periodic(const Duration(seconds: 3), (_) => _refresh());
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) { if (_offer != null && mounted) { setState(() => _left = _left > 0 ? _left - 1 : 0); if (_left == 0) _refresh(); } });
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) { if ((_offer != null || _dOffer != null) && mounted) { setState(() => _left = _left > 0 ? _left - 1 : 0); if (_left == 0) _refresh(); } });
     _refresh();
   }
 
@@ -179,18 +179,27 @@ class _HomeState extends ConsumerState<DriverHome> {
   void dispose() { _poll?.cancel(); _tick?.cancel(); super.dispose(); }
 
   Future<void> _refresh() async {
-    if (!_online && _ride == null) return;
+    if (!_online && _ride == null && _delivery == null) return;
     try {
       final api = ref.read(apiProvider);
       final ride = await api.get('/drivers/rides/active');
-      Map<String, dynamic>? offer;
-      if (ride == null || (ride is String && ride.isEmpty)) { final o = await api.get('/drivers/offers'); offer = o is Map<String, dynamic> ? o : null; }
+      Map<String, dynamic>? offer, dOffer, delivery;
+      final noRide = ride == null || (ride is String && ride.isEmpty);
+      if (noRide) {
+        final dl = await api.get('/drivers/deliveries/active');
+        delivery = dl is Map<String, dynamic> ? dl : null;
+        if (delivery == null) {
+          final o = await api.get('/drivers/offers'); offer = o is Map<String, dynamic> ? o : null;
+          final dof = await api.get('/drivers/delivery-offers'); dOffer = dof is Map<String, dynamic> ? dof : null;
+        }
+      }
       final pos = ref.read(locationPublisherProvider).last;
       if (!mounted) return;
       setState(() {
         _ride = ride is Map<String, dynamic> ? ride : null;
-        _offer = offer;
-        if (offer != null) _left = (offer['seconds_left'] as num).toInt();
+        _offer = offer; _dOffer = dOffer; _delivery = delivery;
+        final live = offer ?? dOffer;
+        if (live != null) _left = (live['seconds_left'] as num).toInt();
         if (pos != null) _pos = LatLng(pos.latitude, pos.longitude);
       });
     } catch (_) {}
@@ -239,12 +248,15 @@ class _HomeState extends ConsumerState<DriverHome> {
           Expanded(child: Text(_online ? ref.t('driver.online') : ref.t('driver.offline'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))),
           Text('★ ${me?['rating_avg'] ?? '5.0'}  ·  ${formatKzt(me?['todayEarnings'])}', style: const TextStyle(color: JolayColors.yellow, fontWeight: FontWeight.w700)),
           const SizedBox(width: 8),
-          Switch(key: const Key('online-switch'), value: _online, onChanged: (_busy || _ride != null) ? null : _toggle, activeTrackColor: JolayColors.yellow, activeThumbColor: JolayColors.midnight),
+          Switch(key: const Key('online-switch'), value: _online, onChanged: (_busy || _ride != null || _delivery != null) ? null : _toggle, activeTrackColor: JolayColors.yellow, activeThumbColor: JolayColors.midnight),
         ])),
       ]))),
       if (_offer != null && _ride == null) Align(alignment: Alignment.bottomCenter, child: _OfferCard(offer: _offer!, left: _left, busy: _busy,
         onAccept: () => _act('/drivers/offers/${_offer!['offer_id']}/accept'), onDecline: () => _act('/drivers/offers/${_offer!['offer_id']}/decline'))),
       if (_ride != null) Align(alignment: Alignment.bottomCenter, child: _ActiveTrip(ride: _ride!, busy: _busy, onAct: _act)),
+      if (_dOffer != null && _ride == null && _delivery == null) Align(alignment: Alignment.bottomCenter, child: _DeliveryOfferCard(offer: _dOffer!, left: _left, busy: _busy,
+        onAccept: () => _act('/drivers/delivery-offers/${_dOffer!['offer_id']}/accept'), onDecline: () => _act('/drivers/delivery-offers/${_dOffer!['offer_id']}/decline'))),
+      if (_delivery != null) Align(alignment: Alignment.bottomCenter, child: _ActiveDelivery(delivery: _delivery!, busy: _busy, onAct: _act, onRefresh: _refresh)),
     ]);
   }
 }
@@ -298,6 +310,90 @@ void _sos(BuildContext context, WidgetRef ref) => showDialog<void>(context: cont
         FilledButton(onPressed: () { Navigator.pop(c); launchUrl(Uri.parse('tel:112')); }, style: FilledButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white, minimumSize: const Size(120, 44)), child: Text(ref.t('sos.call'))),
       ],
     ));
+
+class _DeliveryOfferCard extends ConsumerWidget {
+  final Map<String, dynamic> offer;
+  final int left;
+  final bool busy;
+  final VoidCallback onAccept, onDecline;
+  const _DeliveryOfferCard({required this.offer, required this.left, required this.busy, required this.onAccept, required this.onDecline});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Container(
+        key: const Key('delivery-offer-card'),
+        margin: const EdgeInsets.all(12), padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: JolayColors.midnight, borderRadius: BorderRadius.circular(JolayRadius.lg)),
+        child: SafeArea(top: false, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [const Icon(Icons.inventory_2, color: JolayColors.yellow), const SizedBox(width: 8), Expanded(child: Text(ref.t('delivery.newOrder'), style: const TextStyle(color: JolayColors.yellow, fontWeight: FontWeight.w900, fontSize: 18))), Text('${left}s', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800))]),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(value: (left / 15).clamp(0, 1).toDouble(), color: JolayColors.yellow, backgroundColor: const Color(0xFF333333)),
+          const SizedBox(height: 12),
+          Text('${offer['pickup_address']} → ${offer['dropoff_address']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          Text('${offer['parcel_description']} · ${offer['weight_kg']} kg', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(ref.t('driver.pickupDistance'), style: const TextStyle(color: Colors.white54, fontSize: 11)), Text('${((offer['pickup_distance_m'] as num) / 1000).toStringAsFixed(1)} ${ref.t('ride.km')}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))])),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(ref.t('driver.expected'), style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(formatKzt(offer['expected_earnings']), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))])),
+          ]),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: OutlinedButton(key: const Key('d-decline'), onPressed: busy ? null : onDecline, style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white38)), child: Text(ref.t('driver.decline')))),
+            const SizedBox(width: 10),
+            Expanded(flex: 2, child: FilledButton(key: const Key('d-accept'), onPressed: busy ? null : onAccept, child: Text(ref.t('driver.accept')))),
+          ]),
+        ])),
+      );
+}
+
+/// Active parcel delivery: pick up at the sender, then hand over to the recipient with their 4-digit code.
+class _ActiveDelivery extends ConsumerWidget {
+  final Map<String, dynamic> delivery;
+  final bool busy;
+  final Future<void> Function(String path) onAct;
+  final Future<void> Function() onRefresh;
+  const _ActiveDelivery({required this.delivery, required this.busy, required this.onAct, required this.onRefresh});
+
+  Future<void> _deliver(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(context: context, builder: (c) => AlertDialog(
+      title: Text(ref.t('delivery.deliver')),
+      content: TextField(key: const Key('code-field'), controller: ctrl, keyboardType: TextInputType.number, maxLength: 4, autofocus: true, textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, letterSpacing: 8, fontWeight: FontWeight.w800), decoration: InputDecoration(labelText: ref.t('delivery.enterCode'), counterText: '')),
+      actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(ref.t('btn.cancel'))), FilledButton(key: const Key('code-submit'), onPressed: () => Navigator.pop(c, ctrl.text), style: FilledButton.styleFrom(minimumSize: const Size(100, 44)), child: Text(ref.t('btn.continue')))],
+    ));
+    if (code == null || !RegExp(r'^\d{4}$').hasMatch(code)) return;
+    try {
+      await ref.read(apiProvider).post('/drivers/deliveries/${delivery['id']}/deliver', body: {'code': code});
+      await onRefresh();
+    } catch (e) { if (context.mounted) toast(context, ref, e); }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = delivery['id'];
+    final picked = delivery['status'] == 'PICKED_UP';
+    final target = picked ? delivery['dropoff'] : delivery['pickup'];
+    final phone = picked ? delivery['recipientPhone'] : delivery['senderPhone'];
+    return Container(
+      key: const Key('active-delivery'),
+      margin: const EdgeInsets.all(12), padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(JolayRadius.lg), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16)]),
+      child: SafeArea(top: false, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [const Icon(Icons.inventory_2_outlined), const SizedBox(width: 8), Expanded(child: Text('${ref.t('delivery.parcel')} · ${delivery['trackingNumber']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))), Text(formatKzt(delivery['courierEarnings']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))]),
+        const SizedBox(height: 6),
+        Text('${picked ? delivery['dropoffAddress'] : delivery['pickupAddress']} · ${picked ? delivery['recipientName'] : delivery['senderName']}'),
+        Text('${delivery['parcelDescription']} · ${delivery['weightKg']} kg', style: const TextStyle(color: JolayColors.textSecondary, fontSize: 12)),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: OutlinedButton.icon(onPressed: () => launchUrl(Uri.parse('geo:${target['lat']},${target['lng']}?q=${target['lat']},${target['lng']}'), mode: LaunchMode.externalApplication), icon: const Icon(Icons.navigation_outlined), label: Text(ref.t('nav.home')), style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)))),
+          if (phone != null) ...[const SizedBox(width: 8), IconButton.outlined(onPressed: () => launchUrl(Uri.parse('tel:$phone')), icon: const Icon(Icons.call))],
+        ]),
+        const SizedBox(height: 10),
+        if (!picked) JolayButton(key: const Key('picked-up'), label: ref.t('delivery.pickedUp'), busy: busy, onPressed: () => onAct('/drivers/deliveries/$id/picked-up'))
+        else JolayButton(key: const Key('deliver'), label: ref.t('delivery.deliver'), busy: busy, onPressed: () => _deliver(context, ref)),
+        if (!picked) TextButton(onPressed: busy ? null : () => onAct('/drivers/deliveries/$id/cancel'), child: Text(ref.t('delivery.handBack'), style: const TextStyle(color: JolayColors.error))),
+      ])),
+    );
+  }
+}
 
 class _ActiveTrip extends ConsumerWidget {
   final Map<String, dynamic> ride;
@@ -410,6 +506,8 @@ class DriverProfile extends ConsumerWidget {
       const SizedBox(height: 12),
       JolayCard(padding: EdgeInsets.zero, child: Column(children: [
         ListTile(leading: const Icon(Icons.language), title: Text(ref.t('profile.language')), trailing: const LangRow()),
+        SwitchListTile(key: const Key('accept-deliveries'), secondary: const Icon(Icons.inventory_2_outlined), title: Text(ref.t('delivery.accept')), value: me?['accepts_delivery'] == true,
+          onChanged: (v) async { try { await ref.read(apiProvider).put('/drivers/delivery', body: {'enabled': v}); ref.invalidate(driverMeProvider); } catch (e) { if (context.mounted) toast(context, ref, e); } }),
         ListTile(key: const Key('open-payouts'), leading: const Icon(Icons.account_balance_outlined), title: Text(ref.t('payout.title')), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PayoutsScreen()))),
         ListTile(leading: const Icon(Icons.health_and_safety_outlined), title: Text(ref.t('driver.safety')), subtitle: const Text('112'), onTap: () => launchUrl(Uri.parse('tel:112'))),
       ])),
