@@ -51,7 +51,7 @@ public abstract class IntegrationTestBase {
                 if (dataSource instanceof com.zaxxer.hikari.HikariDataSource h) h.getHikariPoolMXBean().softEvictConnections(); }
         }
         jdbc.sql("TRUNCATE users RESTART IDENTITY CASCADE").update();
-        jdbc.sql("TRUNCATE audit_logs, notifications, ledger_transactions, payment_webhook_events, legal_documents RESTART IDENTITY CASCADE").update();
+        jdbc.sql("TRUNCATE audit_logs, notifications, ledger_transactions, payment_webhook_events, legal_documents, push_outbox RESTART IDENTITY CASCADE").update();
         jdbc.sql("INSERT INTO accounts(type) VALUES ('PLATFORM_REVENUE'),('EXTERNAL_CARD'),('EXTERNAL_CASH'),('PROMO'),('PAYOUT_CLEARING'),('EXTERNAL_BANK')").update();
         jdbc.sql("UPDATE pricing_rules SET demand_multiplier=1.00, active=true").update();
         TestConfig.OTPS.clear();

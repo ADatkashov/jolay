@@ -48,6 +48,9 @@ jolay:
     provider: ${JOLAY_PAYMENT_PROVIDER:sandbox}
     sandbox-webhook-secret: ${JOLAY_SANDBOX_WEBHOOK_SECRET:dev-sandbox-secret}
     public-base-url: ${JOLAY_PUBLIC_URL:http://localhost:8080}
+  push:
+    # Empty = DEVELOPMENT MOCK (messages are only recorded in push_outbox). Set to a Google service-account JSON to enable real FCM.
+    fcm.service-account-file: ${JOLAY_FCM_SERVICE_ACCOUNT_FILE:}
   storage:
     documents-dir: ${JOLAY_DOCS_DIR:./data/documents}
   dispatch:
