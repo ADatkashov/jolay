@@ -9,3 +9,6 @@ Source: instructions given by the product owner (repository owner `ADatkashov`) 
 4. **No legal text is written by the assistant**; it is published through the admin console once qualified counsel supplies it.
 
 This file records the owner's instruction; it is not a technical access-control mechanism.
+
+
+Исходные сообщения владельца (дословно, включая это разрешение): `docs/product/OWNER_PROMPTS.md`.

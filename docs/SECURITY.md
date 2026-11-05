@@ -17,11 +17,13 @@
 
 * Safety & fraud: SOS/incident handling is audited (views, notes, resolution); risk flags are review-only and never change accounts automatically; payouts and refunds are ledger-backed, role-restricted and audited; reconciliation runs hourly.
 
+* Staff two-factor (TOTP, RFC 6238; `identity/Totp`, `MfaService`, `MfaController`): enrol at `/api/v1/account/mfa/setup` then `/enable` with a code; 8 single-use recovery codes (stored hashed) are shown once. Once enabled, login without a valid code returns `mfa_required` and no tokens; wrong codes count toward the same lockout as wrong passwords; the lockout counter is reset only after every factor passes; a used code cannot be replayed (last accepted time step is stored). Turning it off needs the current password plus a code. Secrets are stored AES-GCM encrypted with a key derived from `JOLAY_MFA_KEY` (falls back to the JWT secret; **changing the key makes enrolled secrets unreadable** — a super admin must reset them in the DB). Tests: `TotpTest` (RFC vectors), `MfaIT`.
+
 ## Known gaps — do before production
 * Rate limiting is per instance (`RateLimitFilter`: auth endpoints per IP, API per user). Add a global limit at the gateway/ingress.
 * Login lockout is per-instance memory; move to the DB/Redis for multi-replica.
 * WebSocket takes the JWT in the query string — redact in proxy logs or switch to a ticket exchange.
-* No MFA for staff, no IP allow-listing for the admin console, no session listing/revocation UI.
+* Staff MFA (TOTP) exists but is **optional**: nothing forces a super admin or finance admin to enrol yet. Enforcement for finance/super roles is the next step. No IP allow-listing for the admin console, no session listing/revocation UI.
 * Driver document files are on local disk — use encrypted object storage with signed URLs and malware scanning.
 * No dependency/SAST scanning in CI yet; no penetration test; no formal threat model.
 * Personal-data retention/erasure rules are **not** verified against Kazakhstan law (see below).

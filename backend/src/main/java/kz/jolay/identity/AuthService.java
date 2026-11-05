@@ -34,11 +34,12 @@ public class AuthService {
     private final JwtService jwt;
     private final SecurityProps props;
     private final SmsSender sms;
+    private final MfaService mfa;
     private final Map<String, int[]> failures = new ConcurrentHashMap<>();       // identifier -> [count]
     private final Map<String, Instant> lockedUntil = new ConcurrentHashMap<>();
 
-    public AuthService(JdbcClient jdbc, PasswordEncoder encoder, JwtService jwt, SecurityProps props, SmsSender sms) {
-        this.jdbc = jdbc; this.encoder = encoder; this.jwt = jwt; this.props = props; this.sms = sms;
+    public AuthService(JdbcClient jdbc, PasswordEncoder encoder, JwtService jwt, SecurityProps props, SmsSender sms, MfaService mfa) {
+        this.jdbc = jdbc; this.encoder = encoder; this.jwt = jwt; this.props = props; this.sms = sms; this.mfa = mfa;
     }
 
     // ---------- helpers ----------
@@ -163,10 +164,19 @@ public class AuthService {
             if (++c[0] >= props.loginMaxFailures()) { lockedUntil.put(ident, Instant.now().plus(props.loginLockout())); c[0] = 0; }
             throw ApiException.unauthorized("invalid_credentials", "Invalid credentials");
         }
-        failures.remove(ident); lockedUntil.remove(ident);
         if ("SUSPENDED".equals(user.get().get("status"))) throw ApiException.forbidden("account_suspended", "Account is suspended");
         if (!(Boolean) user.get().get("phone_verified")) throw ApiException.forbidden("phone_not_verified", "Phone number is not verified");
-        return issueTokens((UUID) user.get().get("id"), UUID.randomUUID());
+        UUID userId = (UUID) user.get().get("id");
+        if (mfa.enabled(userId)) {
+            if (r.mfaCode() == null || r.mfaCode().isBlank()) throw ApiException.unauthorized("mfa_required", "Enter the code from your authenticator app");
+            if (!mfa.verifyLogin(userId, r.mfaCode())) {      // wrong codes count towards the same lockout as wrong passwords
+                int[] c = failures.computeIfAbsent(ident, k -> new int[1]);
+                if (++c[0] >= props.loginMaxFailures()) { lockedUntil.put(ident, Instant.now().plus(props.loginLockout())); c[0] = 0; }
+                throw ApiException.unauthorized("invalid_mfa_code", "The code is not valid");
+            }
+        }
+        failures.remove(ident); lockedUntil.remove(ident);      // reset only after every factor passed, so a known password does not give unlimited code guesses
+        return issueTokens(userId, UUID.randomUUID());
     }
 
     @Transactional(noRollbackFor = ApiException.class)

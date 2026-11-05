@@ -21,6 +21,7 @@ export const NAV: NavItem[] = [
   { id: "legal", label: "Legal documents", roles: ["SUPER_ADMIN"] },
   { id: "settings", label: "Settings", roles: ["SUPER_ADMIN"] },
   { id: "audit", label: "Audit Logs", roles: ["SUPER_ADMIN"] },
+  { id: "security", label: "My security", roles: ALL },
 ];
 
 export const navFor = (roles: string[]) => NAV.filter((n) => n.roles.some((r) => roles.includes(r)));
