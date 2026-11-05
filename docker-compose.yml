@@ -36,5 +36,10 @@ services:
     depends_on: [backend]
     ports: ["5173:80"]
 
+  partner-web:
+    build: ./apps/partner-web
+    depends_on: [backend]
+    ports: ["5174:80"]
+
 volumes:
   pgdata:

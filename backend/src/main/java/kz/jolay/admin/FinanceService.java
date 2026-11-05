@@ -39,6 +39,9 @@ public class FinanceService {
         BigDecimal held = jdbc.sql("SELECT COALESCE(sum(amount),0) FROM payouts WHERE status='REQUESTED'").query(BigDecimal.class).single();
         BigDecimal clearing = jdbc.sql("SELECT balance FROM accounts WHERE type='PAYOUT_CLEARING'").query(BigDecimal.class).single();
         long clearingMismatch = held.compareTo(clearing) == 0 ? 0 : 1;
+        BigDecimal openOrders = jdbc.sql("SELECT COALESCE(sum(items_total + delivery_fee),0) FROM store_orders WHERE status IN ('PLACED','ACCEPTED','READY')").query(BigDecimal.class).single();
+        BigDecimal escrow = jdbc.sql("SELECT balance FROM accounts WHERE type='ORDER_ESCROW'").query(BigDecimal.class).single();
+        long escrowMismatch = openOrders.compareTo(escrow) == 0 ? 0 : 1;
         long stalePending = count("SELECT count(*) FROM payment_transactions WHERE status='PENDING' AND created_at < now() - interval '30 minutes'");
         long unpaidCompleted = count("SELECT count(*) FROM rides WHERE status='COMPLETED' AND payment_status IN ('PENDING','FAILED','NONE') AND completed_at < now() - interval '1 hour'");
         long oldPayouts = count("SELECT count(*) FROM payouts WHERE status='REQUESTED' AND created_at < now() - interval '3 days'");
@@ -50,10 +53,11 @@ public class FinanceService {
         m.put("completedRidesWithoutFare", completedWithoutFare);
         m.put("processedPayoutsWithoutLedger", paidPayoutsWithoutLedger);
         m.put("payoutHoldMismatch", clearingMismatch);
+        m.put("orderEscrowMismatch", escrowMismatch);
         m.put("pendingPaymentsOlderThan30Min", stalePending);
         m.put("completedRidesUnpaidOverOneHour", unpaidCompleted);
         m.put("payoutRequestsOlderThan3Days", oldPayouts);
-        boolean crit = sum.signum() != 0 || unbalanced + drift + succeededWithoutLedger + paidRidesWithoutLedger + completedWithoutFare + paidPayoutsWithoutLedger + clearingMismatch > 0;
+        boolean crit = sum.signum() != 0 || unbalanced + drift + succeededWithoutLedger + paidRidesWithoutLedger + completedWithoutFare + paidPayoutsWithoutLedger + clearingMismatch + escrowMismatch > 0;
         m.put("status", crit ? "CRITICAL" : (stalePending + unpaidCompleted + oldPayouts > 0 ? "ATTENTION" : "OK"));
         return m;
     }

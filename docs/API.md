@@ -25,3 +25,9 @@ Idempotency: send `Idempotency-Key` on `POST /rides`, `POST /wallet/top-ups`, `P
 Role matrix (incidents: SUPER/OPERATIONS/SUPPORT; payouts: SUPER/FINANCE; risk flags: SUPER/OPERATIONS/FINANCE; legal publishing: SUPER):
  `SUPER_ADMIN` all · `OPERATIONS_ADMIN` drivers/users/rides · `FINANCE_ADMIN` pricing/payments/refunds/wallets · `SUPPORT_AGENT` read + support replies.
 Differences from the initial brief: `PUT /drivers/availability` takes `{online}`; an extra `en-route` step exists in the driver flow; `/payments/initialize` pays a **completed ride**.
+
+## Marketplace (V8)
+
+Customer: `GET /stores?lat&lng&category`, `GET /stores/{id}/menu`, `POST /store-orders/estimate` (no money moves), `POST /store-orders` (requires `Idempotency-Key`; pays from wallet into escrow), `GET /store-orders[?tab=ongoing]`, `GET /store-orders/{id}`, `POST /store-orders/{id}/cancel` (only while PLACED).
+Partner (`ROLE_PARTNER`): `POST /partner/register`, `GET /partner/me`, stores and products CRUD under `/partner/stores…`, `POST /partner/orders/{id}/accept|reject|ready`, `GET /partner/reports/sales`.
+Admin: `GET /admin/partners`, `POST /admin/partners/{id}/status`, `GET /admin/store-orders`.

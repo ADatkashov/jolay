@@ -15,6 +15,7 @@ monolith with a Flutter customer app, a Flutter driver app and a React admin con
 | `apps/customer-app/` | Flutter customer app (kk / ru / en) |
 | `apps/driver-app/` | Flutter driver app |
 | `apps/admin-web/` | React + TypeScript staff console |
+| `apps/partner-web/` | React + TypeScript partner (store) portal |
 | `shared/jolay_core/` | Flutter package: theme, localization, API client, auth, WebSocket client |
 | `shared/design-tokens/` | Brand tokens (JSON + CSS) |
 | `infrastructure/` | Kubernetes manifests, Prometheus config |

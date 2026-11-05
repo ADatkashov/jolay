@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Deliveries, Incidents } from "./pages/Ops";
+import { Deliveries, Incidents, Partners } from "./pages/Ops";
 
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
 
@@ -48,5 +48,30 @@ describe("Deliveries page", () => {
     expect(await screen.findByText("JLABCD2345")).toBeInTheDocument();
     expect(screen.getByText("Ahmed")).toBeInTheDocument();
     expect(screen.getByText("CASH NONE")).toBeInTheDocument();
+  });
+});
+
+describe("Partners page", () => {
+  it("approving a partner asks for confirmation and sends APPROVED; rejecting needs a reason", async () => {
+    const calls: { m: string; u: string; b?: string }[] = [];
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(window, "prompt").mockReturnValue("BIN not found in the registry");
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      calls.push({ m: init?.method ?? "GET", u: String(url), b: init?.body as string | undefined });
+      if (String(url).includes("/admin/partners?")) return json([{ id: "p1", business_name: "Nan Bistro", legal_id: "123456789012", status: "PENDING", commission_rate: "0.1500", owner: "Dana", phone: "+77011112233", stores: 0, created_at: "2026-11-04T10:30:00Z" }]);
+      return json({});
+    });
+    render(<Partners roles={["OPERATIONS_ADMIN"]} />);
+    fireEvent.click(await screen.findByText("Approve"));
+    await waitFor(() => expect(calls.find((c) => c.m === "PUT")?.b).toContain("APPROVED"));
+    fireEvent.click(screen.getByText("Reject"));
+    await waitFor(() => expect(calls.filter((c) => c.m === "PUT")[1]?.b).toContain("BIN not found in the registry"));
+  });
+
+  it("support agents can look but not decide", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => json([{ id: "p1", business_name: "Nan Bistro", status: "PENDING", commission_rate: "0.15", owner: "D", phone: "+7", stores: 0, created_at: "2026-11-04T10:30:00Z" }]));
+    render(<Partners roles={["SUPPORT_AGENT"]} />);
+    expect(await screen.findByText("Nan Bistro")).toBeInTheDocument();
+    expect(screen.queryByText("Approve")).toBeNull();
   });
 });

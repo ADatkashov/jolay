@@ -22,7 +22,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | WebSocket events with reconnect hints | 🟡 | event delivery after commit; no WS integration test |
 | Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
-| JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; food/grocery delivery, partners, stores, products ⛔ |
+| JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; |
 | Push notifications | 🧪 | localized texts + fan-out implemented; delivery is a DEV MOCK (`push_outbox`) until an FCM service account is configured; FCM adapter tested only against a local stub; apps do not register real device tokens yet |
 | SOS / complaints → incidents with staff notification, investigation history, admin handling | ✅ | apps also dial 112; no on-call schedule/SLA/escalation; trip sharing links and emergency contacts ⛔ |
 | Risk flags (7 rules, human review, no auto-suspension) | ✅ | thresholds are uncalibrated defaults |
@@ -34,7 +34,8 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Customer (Flutter): splash, onboarding, signup, OTP, login, forgot/reset, location permission handling, home, destination search, map picker, ride options, searching, live tracking, SOS (dials 112), payment, rating, history, wallet, profile, support chat | ✅ widget-tested (8 tests); never run on a device/emulator in this environment |
 | Driver (Flutter): auth, vehicle registration, document upload, verification status, online toggle + location publishing, offer card with countdown, active-trip stages, navigation hand-off, earnings, orders, profile | 🟡 4 widget tests; never run on a device |
 | Admin (React): dashboard, live ops (tables, no map), rides, drivers approve/reject/suspend, customers, payments/refunds, pricing, support, settings, audit | ✅ builds, 7 tests |
-| Partner portal | ⛔ |
+| Partner portal (`apps/partner-web`: registration, stores, menu, order accept/reject/ready, sales report; 7 tests) | ✅ (never opened in a real browser against a live backend) |
+| Customer marketplace (shops list, menu, cart, checkout with server quote, order tracking with handover code; 4 widget tests) | ✅ (not run on a device) |
 | Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |
 | Customer screens not built: Select Country picker, Delivery/Express flows, referral | ⛔ |
 
