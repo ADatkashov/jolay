@@ -104,8 +104,13 @@ class MarketplaceIT extends IntegrationTestBase {
         Map<String, Object> far = merge(order(s, lagman, "1"), Map.of("dropoff", Map.of("lat", 43.30, "lng", 77.05)));
         assertEquals("too_far", post("/api/v1/store-orders", c.token(), far).s("code"));
 
+        Resp preview = post("/api/v1/store-orders/estimate", c.token(), order(s, lagman, "2", tea, "1"));
+        assertEquals(200, preview.status(), preview.body().toString());
+        assertEquals(0, balance(c).compareTo(new BigDecimal("20000")), "a preview holds nothing");
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM store_orders").query(Integer.class).single());
         Resp placed = post("/api/v1/store-orders", c.token(), order(s, lagman, "2", tea, "1"));
         assertEquals(201, placed.status(), placed.body().toString());
+        assertEquals(0, new BigDecimal(preview.s("total")).compareTo(new BigDecimal(placed.s("total"))), "the preview shows exactly what will be charged");
         assertEquals("PLACED", placed.s("status"));
         BigDecimal items = new BigDecimal(placed.s("itemsTotal")), fee = new BigDecimal(placed.s("deliveryFee")), total = new BigDecimal(placed.s("total"));
         assertEquals(0, items.compareTo(new BigDecimal("5500")), "2 x 2500 + 500, computed by the server");

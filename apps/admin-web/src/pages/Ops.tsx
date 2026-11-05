@@ -122,3 +122,35 @@ export function Deliveries() {
       {data?.map((d) => <tr key={d.id}><td>{when(d.created_at)}</td><td>{d.tracking_number}</td><td><Pill v={d.status === "DELIVERED" ? "PAID" : d.status} /></td><td>{d.size_class}</td>
         <td>{d.pickup_address} → {d.dropoff_address}</td><td>{d.customer}</td><td>{d.courier ?? "—"}</td><td>{kzt(d.fee)}</td><td>{d.payment_method} {d.payment_status}</td></tr>)}</tbody></table></>;
 }
+
+export function Partners({ roles }: { roles: string[] }) {
+  const [status, setStatus] = useState("PENDING");
+  const { data, error, loading, reload } = useApi<Row[]>(`/admin/partners${status ? `?status=${status}` : ""}`);
+  const [msg, setMsg] = useState("");
+  const can = roles.some((r) => r === "SUPER_ADMIN" || r === "OPERATIONS_ADMIN");
+  const decide = async (p: Row, decision: "APPROVED" | "REJECTED" | "SUSPENDED") => {
+    let note: string | null = null;
+    if (decision !== "APPROVED") { note = window.prompt(`Reason for ${decision} (required):`); if (!note) return; }
+    else if (!window.confirm(`Approve ${p.business_name} (BIN ${p.legal_id ?? "not provided"})? Verify the BIN with the registry first.`)) return;
+    try { await api("PUT", `/admin/partners/${p.id}/status`, { status: decision, note }); setMsg(""); reload(); } catch (e) { setMsg(errMsg(e)); }
+  };
+  return <><h1>Partners</h1>
+    <div className="row"><select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 220 }}>{["", "PENDING", "APPROVED", "SUSPENDED", "REJECTED"].map((s) => <option key={s} value={s}>{s || "All"}</option>)}</select></div>
+    {msg && <div className="err" role="alert">{msg}</div>}<Status error={error} loading={loading} />
+    <table><thead><tr><th>Business</th><th>BIN</th><th>Owner</th><th>Stores</th><th>Commission</th><th>Status</th><th /></tr></thead><tbody>
+      {data?.map((p) => <tr key={p.id}><td>{p.business_name}<div className="muted">{when(p.created_at)}</div></td><td>{p.legal_id ?? "—"}</td><td>{p.owner}<div className="muted">{p.phone}</div></td><td>{p.stores}</td>
+        <td>{(Number(p.commission_rate) * 100).toFixed(1)}%</td><td><Pill v={p.status === "APPROVED" ? "PAID" : p.status} /></td>
+        <td className="row">{can && p.status !== "APPROVED" && <button className="btn" onClick={() => void decide(p, "APPROVED")}>Approve</button>}
+          {can && p.status === "PENDING" && <button className="btn ghost" onClick={() => void decide(p, "REJECTED")}>Reject</button>}
+          {can && p.status === "APPROVED" && <button className="btn danger" onClick={() => void decide(p, "SUSPENDED")}>Suspend</button>}</td></tr>)}</tbody></table></>;
+}
+
+export function StoreOrders() {
+  const [status, setStatus] = useState("");
+  const { data, error, loading } = useApi<Row[]>(`/admin/store-orders${status ? `?status=${status}` : ""}`, 10000);
+  return <><h1>Store orders</h1>
+    <div className="row"><select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 220 }}>{["", "PLACED", "ACCEPTED", "READY", "COMPLETED", "REJECTED", "CANCELLED", "FAILED"].map((s) => <option key={s} value={s}>{s || "All statuses"}</option>)}</select></div>
+    <Status error={error} loading={loading} />
+    <table><thead><tr><th>Created</th><th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Delivery</th><th>Status</th></tr></thead><tbody>
+      {data?.map((o) => <tr key={o.id}><td>{when(o.created_at)}</td><td>{o.number}</td><td>{o.store}</td><td>{o.customer}</td><td>{kzt(o.items_total)}</td><td>{kzt(o.delivery_fee)}</td><td><Pill v={o.status === "COMPLETED" ? "PAID" : o.status === "FAILED" || o.status === "REJECTED" || o.status === "CANCELLED" ? "REJECTED" : o.status} /></td></tr>)}</tbody></table></>;
+}

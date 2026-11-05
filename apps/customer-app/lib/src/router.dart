@@ -9,6 +9,7 @@ import 'screens/legal_screen.dart';
 import 'screens/onboarding.dart';
 import 'screens/ride_screens.dart';
 import 'screens/shell.dart';
+import 'screens/shop_screens.dart';
 import 'screens/support_screens.dart';
 
 /// Re-evaluates redirects whenever the auth status changes.
@@ -39,6 +40,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/forgot', builder: (_, _) => const ForgotScreen()),
       GoRoute(path: '/reset', builder: (_, s) => ResetScreen(identifier: s.extra as String)),
       GoRoute(path: '/home', builder: (_, _) => const Shell()),
+      GoRoute(path: '/shops', builder: (_, _) => const ShopsScreen()),
+      GoRoute(path: '/store/:id', builder: (_, s) => StoreScreen(storeId: s.pathParameters['id']!)),
+      GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
+      GoRoute(path: '/shop-order/:id', builder: (_, s) => ShopOrderScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/express/new', builder: (_, _) => const ExpressCreateScreen()),
       GoRoute(path: '/express/:id', builder: (_, s) => ExpressTrackScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/ride/destination', builder: (_, _) => const DestinationScreen()),

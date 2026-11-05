@@ -33,12 +33,12 @@ public class StoreOrderService {
 
     public record Line(UUID productId, int quantity) {}
 
-    @Transactional
-    public Map<String, Object> place(UUID customerId, UUID storeId, List<Line> lines, GeoPoint dropoff, String dropAddr, String recipientName, String recipientPhone, String note, String idemKey) {
-        if (idemKey != null) {
-            var ex = jdbc.sql("SELECT id FROM store_orders WHERE customer_id=:c AND idempotency_key=:k").param("c", customerId).param("k", idemKey).query(UUID.class).optional();
-            if (ex.isPresent()) return view(ex.get(), customerId, Set.of("CUSTOMER"));
-        }
+    /** Everything the server decides about an order: validated lines (name/price snapshots), totals, delivery fee split, partner commission. */
+    record Priced(Map<String, Object> store, List<Map<String, Object>> snap, BigDecimal itemsTotal, BigDecimal fee, BigDecimal courierEarnings, BigDecimal platformCut, BigDecimal partnerCommission, int distanceM) {
+        BigDecimal total() { return itemsTotal.add(fee); }
+    }
+
+    Priced price(UUID storeId, List<Line> lines, GeoPoint dropoff) {
         var store = jdbc.sql("""
                 SELECT s.id, s.name, s.accepting_orders, s.active, s.partner_id, p.status AS pstatus, p.commission_rate, s.address, ST_X(s.location::geometry) lng, ST_Y(s.location::geometry) lat
                 FROM stores s JOIN partners p ON p.id=s.partner_id WHERE s.id=:id""").param("id", storeId).query().listOfRows().stream().findFirst()
@@ -60,16 +60,28 @@ public class StoreOrderService {
             snap.add(Map.of("id", p.get("id"), "name", p.get("name"), "price", p.get("price"), "qty", e.getValue()));
         }
         itemsTotal = Money.scale(itemsTotal);
-
         GeoPoint from = new GeoPoint((Double) store.get("lat"), (Double) store.get("lng"));
         var quote = deliveries.quote(from, dropoff, "MEDIUM", new BigDecimal("3.0"));
         if (quote.distanceM() > settings.getInt("marketplace.max_distance_m")) throw ApiException.badRequest("too_far", "The store does not deliver to this address");
         BigDecimal courierEarnings = Money.scale(quote.fee().multiply(settings.getDecimal("marketplace.delivery_courier_share")));
-        BigDecimal platformCut = quote.fee().subtract(courierEarnings);
-        BigDecimal partnerCommission = Money.scale(itemsTotal.multiply((BigDecimal) store.get("commission_rate")));
-        BigDecimal total = itemsTotal.add(quote.fee());
-        if (ledger.balance(ledger.userAccount(customerId, "CUSTOMER_WALLET")).compareTo(total) < 0) throw ApiException.conflict("insufficient_funds", "Wallet balance is lower than the order total");
+        return new Priced(store, snap, itemsTotal, quote.fee(), courierEarnings, quote.fee().subtract(courierEarnings), Money.scale(itemsTotal.multiply((BigDecimal) store.get("commission_rate"))), quote.distanceM());
+    }
 
+    /** Price preview shown before the customer confirms. Nothing is stored or held. */
+    public Map<String, Object> estimate(UUID storeId, List<Line> lines, GeoPoint dropoff) {
+        Priced p = price(storeId, lines, dropoff);
+        return Map.of("itemsTotal", p.itemsTotal(), "deliveryFee", p.fee(), "total", p.total(), "distanceM", p.distanceM(), "currency", "KZT");
+    }
+
+    @Transactional
+    public Map<String, Object> place(UUID customerId, UUID storeId, List<Line> lines, GeoPoint dropoff, String dropAddr, String recipientName, String recipientPhone, String note, String idemKey) {
+        if (idemKey != null) {
+            var ex = jdbc.sql("SELECT id FROM store_orders WHERE customer_id=:c AND idempotency_key=:k").param("c", customerId).param("k", idemKey).query(UUID.class).optional();
+            if (ex.isPresent()) return view(ex.get(), customerId, Set.of("CUSTOMER"));
+        }
+        Priced pr = price(storeId, lines, dropoff);
+        BigDecimal total = pr.total();
+        if (ledger.balance(ledger.userAccount(customerId, "CUSTOMER_WALLET")).compareTo(total) < 0) throw ApiException.conflict("insufficient_funds", "Wallet balance is lower than the order total");
         String number = "S" + randomDigits(6);
         UUID id;
         try {
@@ -77,14 +89,14 @@ public class StoreOrderService {
                     INSERT INTO store_orders(number,customer_id,store_id,partner_id,status,items_total,delivery_fee,partner_commission,delivery_courier_earnings,delivery_platform_cut,
                         dropoff_address,dropoff,recipient_name,recipient_phone,note,idempotency_key)
                     VALUES (:n,:c,:s,:p,'PLACED',:it,:df,:pc,:ce,:pl,:da,ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography,:rn,:rp,:note,:idem) RETURNING id""")
-                    .param("n", number).param("c", customerId).param("s", storeId).param("p", store.get("partner_id")).param("it", itemsTotal).param("df", quote.fee()).param("pc", partnerCommission)
-                    .param("ce", courierEarnings).param("pl", platformCut).param("da", dropAddr == null || dropAddr.isBlank() ? "—" : dropAddr.trim()).param("lng", dropoff.lng()).param("lat", dropoff.lat())
+                    .param("n", number).param("c", customerId).param("s", storeId).param("p", pr.store().get("partner_id")).param("it", pr.itemsTotal()).param("df", pr.fee()).param("pc", pr.partnerCommission())
+                    .param("ce", pr.courierEarnings()).param("pl", pr.platformCut()).param("da", dropAddr == null || dropAddr.isBlank() ? "—" : dropAddr.trim()).param("lng", dropoff.lng()).param("lat", dropoff.lat())
                     .param("rn", recipientName.trim()).param("rp", AuthService.normalizePhone(recipientPhone)).param("note", note).param("idem", idemKey).query(UUID.class).single();
         } catch (DuplicateKeyException e) { throw ApiException.conflict("conflict", "Please retry"); }
-        for (var s : snap)
+        for (var s : pr.snap())
             jdbc.sql("INSERT INTO store_order_items(order_id,product_id,name,unit_price,quantity) VALUES (:o,:p,:n,:u,:q)").param("o", id).param("p", s.get("id")).param("n", s.get("name")).param("u", s.get("price")).param("q", s.get("qty")).update();
         settlement.hold(id, customerId, total);
-        UUID partnerUser = jdbc.sql("SELECT owner_id FROM partners WHERE id=:p").param("p", store.get("partner_id")).query(UUID.class).single();
+        UUID partnerUser = jdbc.sql("SELECT owner_id FROM partners WHERE id=:p").param("p", pr.store().get("partner_id")).query(UUID.class).single();
         notifier.notify(partnerUser, "STORE_ORDER_NEW", "store-order-" + id + "-new", Map.of("orderId", id.toString(), "number", number));
         return view(id, customerId, Set.of("CUSTOMER"));
     }

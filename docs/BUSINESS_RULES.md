@@ -32,6 +32,10 @@
 | 27 | A parcel cannot be cancelled by the customer once picked up; a courier can hand an unpicked order back (it is re-queued, excluding that courier) | `DeliveryService` |
 | 28 | Cash delivery: courier owes the commission (wallet debit); wallet delivery: ledger customer → courier + platform at hand-over | `DeliveryService.settlePayment` |
 | 29 | Public tracking returns status and timestamps only (no names, phones, addresses) | `DeliveryService.publicTrack` |
+| 30 | Store order: total (items + delivery fee) is held in ORDER_ESCROW from the customer wallet at placement; nothing is charged twice | `StoreSettlement.hold` |
+| 31 | On hand-over: escrow → partner wallet (items − commission), courier wallet (delivery share), platform (commission + delivery cut) | `StoreSettlement.settleDelivered` |
+| 32 | Store reject / cancel while PLACED / no courier found → full refund from escrow | `StoreSettlement.refundAndClose` |
+| 33 | Prices are snapshots at order time; the server recomputes everything, the client price is never trusted; max 30 lines, one store per order, distance limit from settings | `StoreOrderService.price` |
 
 Customer cancellation fee and free window, commission, base/km/minute/minimum fares, demand multiplier, dispatch radii/timeouts are all configurable (Admin → Pricing / Settings).
 **Rules not yet implemented:** promo codes, peak-hour/surge automation, scheduled rides, delivery rules.

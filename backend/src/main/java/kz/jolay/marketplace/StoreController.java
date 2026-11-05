@@ -46,6 +46,11 @@ public class StoreController {
         return m;
     }
 
+    @PostMapping("/store-orders/estimate")
+    public Map<String, Object> estimate(@Valid @RequestBody PlaceRequest r) {
+        return orders.estimate(r.storeId(), r.items().stream().map(l -> new StoreOrderService.Line(l.productId(), l.quantity())).toList(), r.dropoff());
+    }
+
     @PostMapping("/store-orders") @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> place(@Valid @RequestBody PlaceRequest r, @RequestHeader(value = "Idempotency-Key", required = false) String key) {
         return orders.place(Auth.id(), r.storeId(), r.items().stream().map(l -> new StoreOrderService.Line(l.productId(), l.quantity())).toList(), r.dropoff(), r.address(), r.recipientName(), r.recipientPhone(), r.note(), key);

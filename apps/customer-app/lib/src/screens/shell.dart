@@ -129,7 +129,7 @@ class _HomeState extends ConsumerState<HomeTab> {
         Row(children: [
           Expanded(child: _Tile(icon: Icons.local_taxi, label: ref.t('home.ride'), active: true, onTap: () => context.push('/ride/destination'))),
           const SizedBox(width: 10),
-          Expanded(child: _Tile(icon: Icons.delivery_dining, label: ref.t('home.delivery'), badge: ref.t('home.soon'))),
+          Expanded(child: _Tile(icon: Icons.delivery_dining, label: ref.t('home.delivery'), active: true, onTap: () => context.push('/shops'))),
           const SizedBox(width: 10),
           Expanded(child: _Tile(icon: Icons.inventory_2_outlined, label: ref.t('home.express'), active: true, onTap: () => context.push('/express/new'))),
         ]),
@@ -155,10 +155,9 @@ class _HomeState extends ConsumerState<HomeTab> {
 class _Tile extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String? badge;
   final bool active;
   final VoidCallback? onTap;
-  const _Tile({required this.icon, required this.label, this.badge, this.active = false, this.onTap});
+  const _Tile({required this.icon, required this.label, this.active = false, this.onTap});
   @override
   Widget build(BuildContext context) => Opacity(
         opacity: onTap == null ? .55 : 1,
@@ -166,7 +165,6 @@ class _Tile extends StatelessWidget {
           Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: active ? JolayColors.yellow : JolayColors.cloud, shape: BoxShape.circle), child: Icon(icon, color: JolayColors.midnight)),
           const SizedBox(height: 8),
           Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          if (badge != null) Text(badge!, style: const TextStyle(fontSize: 11, color: JolayColors.textSecondary)),
         ])),
       );
 }
