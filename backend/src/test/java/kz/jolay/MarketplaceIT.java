@@ -291,6 +291,25 @@ class MarketplaceIT extends IntegrationTestBase {
     }
 
     @Test
+    void aCourierWhoWouldGoBelowTheDebtFloorIsNotOfferedACashOrder() {
+        Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);
+        Session c = customer(); Session k = courier();
+        // the courier already owes 15 000; a cash order of ~5 900 would push the debt past the -20 000 floor, a wallet-paid one would not
+        jdbc.sql("INSERT INTO accounts(type, owner_id) VALUES ('DRIVER_WALLET', :d::uuid) ON CONFLICT DO NOTHING").param("d", k.id().toString()).update();
+        assertEquals(1, jdbc.sql("UPDATE accounts SET balance = -15000 WHERE owner_id=:d::uuid AND type='DRIVER_WALLET'").param("d", k.id().toString()).update());
+        String cash = post("/api/v1/store-orders", c.token(), cashOrder(s, dish, "2")).s("id");
+        post("/api/v1/partner/orders/" + cash + "/accept", p.token(), null);
+        post("/api/v1/partner/orders/" + cash + "/ready", p.token(), null);
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM delivery_offers").query(Integer.class).single(), "no offer for a cash order beyond the debt floor");
+
+        topUp(c, 10000);
+        String paid = post("/api/v1/store-orders", c.token(), order(s, dish, "2")).s("id");
+        post("/api/v1/partner/orders/" + paid + "/accept", p.token(), null);
+        post("/api/v1/partner/orders/" + paid + "/ready", p.token(), null);
+        assertEquals(1, jdbc.sql("SELECT count(*) FROM delivery_offers").query(Integer.class).single(), "a prepaid order carries no cash debt, so the same courier gets it");
+    }
+
+    @Test
     void cashOrdersAreLimitedAndRejectionMovesNoMoney() {
         Session p = partner(true); String s = store(p); String dish = product(p, s, "Lagman", 2500);
         Session c = customer();
