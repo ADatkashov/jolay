@@ -38,7 +38,8 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Partner portal (`apps/partner-web`: registration, stores, menu, order accept/reject/ready, sales report; 7 tests) | ✅ (never opened in a real browser against a live backend) |
 | Customer marketplace (shops list, menu, cart, checkout with server quote, wallet or cash on delivery, order tracking with handover code; 4 widget tests) | ✅ (not run on a device) |
 | Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |
-| Customer screens not built: Select Country picker, Delivery/Express flows, referral | ⛔ |
+| Customer Express (parcel create + tracking) and country-code picker on phone fields (9 tests incl. picker) | ✅ widget-tested |
+| Customer screens not built: referral programme | ⛔ |
 
 ## Mocks (owner's part — to be replaced when accounts/keys/contracts exist)
 | Area | What runs today | To go live |

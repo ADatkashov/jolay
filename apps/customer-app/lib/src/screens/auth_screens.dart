@@ -57,7 +57,7 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
         Form(key: _form, child: Column(children: [
           TextFormField(key: const Key('signup-name'), controller: _name, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: ref.t('auth.fullName')), validator: v(ref, Validators.name)),
           const SizedBox(height: 14),
-          TextFormField(key: const Key('signup-phone'), controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: ref.t('auth.phone')), validator: v(ref, Validators.phone)),
+          PhoneField(fieldKey: const Key('signup-phone'), controller: _phone),
           const SizedBox(height: 14),
           TextFormField(key: const Key('signup-email'), controller: _email, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: ref.t('auth.email')), validator: v(ref, Validators.email)),
           const SizedBox(height: 14),
@@ -195,7 +195,7 @@ class _ForgotState extends ConsumerState<ForgotScreen> {
   @override
   Widget build(BuildContext context) => _AuthScaffold(title: ref.t('auth.forgotTitle'), subtitle: ref.t('auth.forgotBody'), children: [
         Form(key: _form, child: Column(children: [
-          TextFormField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: ref.t('auth.phone')), validator: v(ref, Validators.phone)),
+          PhoneField(controller: _phone),
           const SizedBox(height: 20),
           JolayButton(label: ref.t('btn.send'), busy: _busy, onPressed: _submit),
         ])),
