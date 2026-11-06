@@ -5,6 +5,7 @@ import kz.jolay.geography.EstimatedRouteProvider;
 import kz.jolay.geography.GeoService;
 import kz.jolay.geography.RouteProvider;
 import kz.jolay.identity.AuthService;
+import kz.jolay.risk.RiskService;
 import kz.jolay.marketplace.StoreSettlement;
 import kz.jolay.notifications.Notifier;
 import kz.jolay.wallet.LedgerService;
@@ -33,10 +34,11 @@ public class DeliveryService {
     private final AppSettings settings;
     private final CodeAttempts attempts;
     private final StoreSettlement storeSettlement;
+    private final RiskService risk;
     static final int MAX_CODE_ATTEMPTS = 5;
 
-    public DeliveryService(JdbcClient jdbc, GeoService geo, RouteProvider routes, DeliveryStateMachine sm, DeliveryDispatchService dispatch, LedgerService ledger, Notifier notifier, AppSettings settings, CodeAttempts attempts, StoreSettlement storeSettlement) {
-        this.attempts = attempts; this.storeSettlement = storeSettlement;
+    public DeliveryService(JdbcClient jdbc, GeoService geo, RouteProvider routes, DeliveryStateMachine sm, DeliveryDispatchService dispatch, LedgerService ledger, Notifier notifier, AppSettings settings, CodeAttempts attempts, StoreSettlement storeSettlement, RiskService risk) {
+        this.attempts = attempts; this.storeSettlement = storeSettlement; this.risk = risk;
         this.jdbc = jdbc; this.geo = geo; this.routes = routes; this.sm = sm; this.dispatch = dispatch; this.ledger = ledger; this.notifier = notifier; this.settings = settings;
     }
 
@@ -278,6 +280,7 @@ public class DeliveryService {
         if (st != DeliveryStatus.COURIER_ASSIGNED) throw ApiException.conflict("cannot_cancel", "The parcel is already picked up");
         sm.move(id, st, DeliveryStatus.SEARCHING_COURIER, "COURIER:" + courierId, ", courier_id=NULL, assigned_at=NULL, search_started_at=now()", null);
         freeCourier(courierId);
+        risk.onCourierCancel(courierId);
         notifier.notify((UUID) d.get("customer_id"), "DELIVERY_STATUS", "delivery-" + id + "-recourier-" + courierId, Map.of("deliveryId", id.toString(), "status", "SEARCHING_COURIER"));
         dispatch.dispatchRound(id);
     }
