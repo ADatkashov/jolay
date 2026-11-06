@@ -39,6 +39,7 @@
 | 34 | Store order paid in cash on delivery: nothing is held; the courier collects the total, keeps their earnings and owes the rest (wallet debit), partner and platform are credited at hand-over | `StoreSettlement.settleDeliveredCash` |
 | 35 | Cash store orders are capped per order (`marketplace.cash_max_total`, 20 000 ₸) and per customer (`marketplace.cash_max_open`, 2 open at once); reject/cancel of a cash order moves no money | `StoreOrderService.place` |
 | 36 | A courier is not offered a cash store order if collecting it would push their wallet below the debt floor (`wallet.driver_min_balance`, −20 000 ₸); the same floor already applies to all offers | `DeliveryDispatchService` |
+| 37 | A driver/courier with `dispatch.cancel_cooldown_count` (3) cancellations after accepting (rides + deliveries) inside `dispatch.cancel_cooldown_hours` (24) is skipped by dispatch until the oldest age out; nothing is charged and the account is never suspended automatically. Courier cancellations raise the same advisory REPEATED_CANCELLATIONS flag as drivers (`risk.courier_cancels_24h`) | `DispatchService`, `DeliveryDispatchService`, `RiskService.onCourierCancel` |
 
 Customer cancellation fee and free window, commission, base/km/minute/minimum fares, demand multiplier, dispatch radii/timeouts are all configurable (Admin → Pricing / Settings).
 **Rules not yet implemented:** promo codes, peak-hour/surge automation, scheduled rides, delivery rules.

@@ -227,4 +227,36 @@ class DispatchIT extends IntegrationTestBase {
         assertEquals(403, put("/api/v1/drivers/availability", d.token(), Map.of("online", true)).status());
         assertEquals(409, moveDriver(d, 43.2336, 76.9568).status());
     }
+
+    @Test
+    void aDriverWhoKeepsCancellingAfterAcceptingIsNotOfferedNewRidesUntilTheyAgeOut() {
+        assertEquals(200, put("/api/v1/admin/settings/dispatch.cancel_cooldown_count", admin("SUPER_ADMIN").token(), Map.of("value", "2")).status());
+        try {
+            Session d = driver("ECONOMY", 43.2336, 76.9568);
+            for (int i = 0; i < 2; i++) {
+                Session c = customer();
+                String rideId = requestRide(c, "ECONOMY", "CASH").s("id");
+                assertNotNull(currentOfferId(d), "cancellation " + i + ": the driver is still eligible");
+                assertEquals(200, post("/api/v1/drivers/offers/" + currentOfferId(d) + "/accept", d.token(), null).status());
+                assertEquals(204, post("/api/v1/drivers/rides/" + rideId + "/cancel", d.token(), Map.of("reason", "changed my mind")).status());
+                put("/api/v1/drivers/availability", d.token(), Map.of("online", true));
+                moveDriver(d, 43.2336, 76.9568);
+                post("/api/v1/rides/" + rideId + "/cancel", c.token(), Map.of("reason", "cleanup"));
+            }
+            Session c3 = customer();
+            requestRide(c3, "ECONOMY", "CASH");
+            assertNull(currentOfferId(d), "two cancellations in the window: no new offers");
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM ride_offers WHERE driver_id=:d AND status='OFFERED'").param("d", d.id()).query(Integer.class).single());
+
+            // the cancellations age out of the window -> eligible again; nothing was charged or suspended
+            jdbc.sql("UPDATE ride_status_history SET created_at = now() - interval '25 hours' WHERE actor = :a").param("a", "DRIVER:" + d.id()).update();
+            post("/api/v1/rides/" + jdbc.sql("SELECT id FROM rides WHERE customer_id=:c").param("c", c3.id()).query(String.class).single() + "/cancel", c3.token(), Map.of("reason", "retry"));
+            Session c4 = customer();
+            requestRide(c4, "ECONOMY", "CASH");
+            assertNotNull(currentOfferId(d), "older cancellations no longer count");
+            assertEquals("ACTIVE", jdbc.sql("SELECT status FROM users WHERE id=:i").param("i", d.id()).query(String.class).single());
+        } finally {
+            put("/api/v1/admin/settings/dispatch.cancel_cooldown_count", admin("SUPER_ADMIN").token(), Map.of("value", "3"));
+        }
+    }
 }

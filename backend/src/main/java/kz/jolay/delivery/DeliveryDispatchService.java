@@ -67,6 +67,8 @@ public class DeliveryDispatchService {
                       AND ST_DWithin(dl.location, o.pickup, :radius)
                       AND COALESCE(a.balance, 0) - CASE WHEN o.payment_method = 'STORE_CASH'
                               THEN (SELECT so.items_total + so.delivery_fee - o.courier_earnings FROM store_orders so WHERE so.id = o.store_order_id) ELSE 0 END >= :floor
+                      AND ((SELECT count(*) FROM ride_status_history h WHERE h.actor = 'DRIVER:' || d2.user_id AND h.to_status = 'SEARCHING_DRIVER' AND h.created_at > now() - make_interval(hours => :cwin))
+                         + (SELECT count(*) FROM delivery_status_history h2 WHERE h2.actor = 'COURIER:' || d2.user_id AND h2.to_status = 'SEARCHING_COURIER' AND h2.created_at > now() - make_interval(hours => :cwin))) < :cmax
                       AND NOT EXISTS (SELECT 1 FROM delivery_offers x WHERE x.delivery_id=o.id AND x.courier_id=d2.user_id)
                     ORDER BY dl.location <-> o.pickup
                     LIMIT :pool
@@ -77,7 +79,7 @@ public class DeliveryDispatchService {
                 LIMIT 1
                 FOR UPDATE OF d SKIP LOCKED""")
                 .param("id", id).param("age", settings.getInt("dispatch.location_max_age_seconds")).param("radius", radius)
-                .param("floor", settings.getDecimal("wallet.driver_min_balance")).param("pool", settings.getInt("dispatch.candidate_pool"))
+                .param("cwin", settings.getInt("dispatch.cancel_cooldown_hours")).param("cmax", settings.getInt("dispatch.cancel_cooldown_count")).param("floor", settings.getDecimal("wallet.driver_min_balance")).param("pool", settings.getInt("dispatch.candidate_pool"))
                 .query((rs, i) -> new Candidate(rs.getObject("user_id", UUID.class), rs.getDouble("dist"))).list();
         if (cands.isEmpty()) return;
 

@@ -88,6 +88,8 @@ public class DispatchService {
                       AND ST_DWithin(dl.location, r.pickup, :radius)
                       AND ((rc.code='XL' AND vc.code='XL') OR (rc.code<>'XL' AND vc.code<>'XL' AND vc.rank >= rc.rank))
                       AND COALESCE(a.balance, 0) >= :floor
+                      AND ((SELECT count(*) FROM ride_status_history h WHERE h.actor = 'DRIVER:' || d2.user_id AND h.to_status = 'SEARCHING_DRIVER' AND h.created_at > now() - make_interval(hours => :cwin))
+                         + (SELECT count(*) FROM delivery_status_history h2 WHERE h2.actor = 'COURIER:' || d2.user_id AND h2.to_status = 'SEARCHING_COURIER' AND h2.created_at > now() - make_interval(hours => :cwin))) < :cmax
                       AND NOT EXISTS (SELECT 1 FROM ride_offers o WHERE o.ride_id=r.id AND o.driver_id=d2.user_id)
                     ORDER BY dl.location <-> r.pickup
                     LIMIT :pool
@@ -97,7 +99,7 @@ public class DispatchService {
                 ORDER BY near.dist * (1 + 0.5 * (1 - CASE WHEN d.offers_total = 0 THEN 1.0 ELSE d.offers_accepted::numeric / d.offers_total END)), d.user_id
                 LIMIT :n
                 FOR UPDATE OF d SKIP LOCKED""")
-                .param("rid", rideId).param("age", maxAgeSec).param("radius", radius).param("floor", floor)
+                .param("cwin", settings.getInt("dispatch.cancel_cooldown_hours")).param("cmax", settings.getInt("dispatch.cancel_cooldown_count")).param("rid", rideId).param("age", maxAgeSec).param("radius", radius).param("floor", floor)
                 .param("pool", settings.getInt("dispatch.candidate_pool")).param("n", settings.getInt("dispatch.max_candidates_per_round"))
                 .query((rs, i) -> new Candidate(rs.getObject("user_id", UUID.class), rs.getObject("vehicle_id", UUID.class), rs.getDouble("dist"))).list();
 

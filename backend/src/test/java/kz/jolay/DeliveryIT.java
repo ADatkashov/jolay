@@ -235,4 +235,31 @@ class DeliveryIT extends IntegrationTestBase {
         for (DeliveryStatus t : new DeliveryStatus[]{DeliveryStatus.DELIVERED, DeliveryStatus.CANCELLED, DeliveryStatus.EXPIRED, DeliveryStatus.FAILED})
             for (DeliveryStatus n : DeliveryStatus.values()) assertFalse(t.canMoveTo(n));
     }
+
+    @Test
+    void aCourierWhoCancelsRepeatedlyIsFlaggedAndStopsReceivingOffers() {
+        assertEquals(200, put("/api/v1/admin/settings/dispatch.cancel_cooldown_count", admin("SUPER_ADMIN").token(), Map.of("value", "2")).status());
+        assertEquals(200, put("/api/v1/admin/settings/risk.courier_cancels_24h", admin("SUPER_ADMIN").token(), Map.of("value", "2")).status());
+        try {
+            Session k = courier(43.2336, 76.9568);
+            for (int i = 0; i < 2; i++) {
+                Session c = customer();
+                assertEquals(201, create(c, body("SMALL", 1.0, "CASH")).status());
+                String offer = offerId(k);
+                assertNotNull(offer, "cancellation " + i + ": still eligible");
+                String id = post("/api/v1/drivers/delivery-offers/" + offer + "/accept", k.token(), null).s("id");
+                assertEquals(204, post("/api/v1/drivers/deliveries/" + id + "/cancel", k.token(), Map.of("reason", "changed my mind")).status());
+                put("/api/v1/drivers/availability", k.token(), Map.of("online", true));
+                moveDriver(k, 43.2336, 76.9568);
+            }
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM risk_flags WHERE user_id=:u AND rule='REPEATED_CANCELLATIONS'").param("u", k.id()).query(Integer.class).single(), "advisory flag raised");
+            assertEquals("ACTIVE", jdbc.sql("SELECT status FROM users WHERE id=:i").param("i", k.id()).query(String.class).single(), "never suspended automatically");
+            Session c3 = customer();
+            assertEquals(201, create(c3, body("SMALL", 1.0, "CASH")).status());
+            assertNull(offerId(k), "no new offers while the cancellations count");
+        } finally {
+            put("/api/v1/admin/settings/dispatch.cancel_cooldown_count", admin("SUPER_ADMIN").token(), Map.of("value", "3"));
+            put("/api/v1/admin/settings/risk.courier_cancels_24h", admin("SUPER_ADMIN").token(), Map.of("value", "3"));
+        }
+    }
 }

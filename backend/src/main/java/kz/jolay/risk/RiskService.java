@@ -45,6 +45,12 @@ public class RiskService {
         if (n >= settings.getInt("risk.driver_cancels_24h")) flag(driverId, null, "REPEATED_CANCELLATIONS", "MEDIUM", today(), Map.of("cancellations24h", n, "role", "DRIVER"));
     }
 
+    /** REPEATED_CANCELLATIONS (courier, after accepting a delivery). */
+    public void onCourierCancel(UUID courierId) {
+        int n = jdbc.sql("SELECT count(*) FROM delivery_status_history WHERE actor=:a AND to_status='SEARCHING_COURIER' AND created_at > now() - interval '24 hours'").param("a", "COURIER:" + courierId).query(Integer.class).single();
+        if (n >= settings.getInt("risk.courier_cancels_24h")) flag(courierId, null, "REPEATED_CANCELLATIONS", "MEDIUM", today(), Map.of("cancellations24h", n, "role", "COURIER"));
+    }
+
     /** GPS_SPOOFING_INDICATOR: impossible position jumps rejected by the location endpoint. */
     public void onGpsJump(UUID driverId) {
         event(driverId, "GPS_JUMP");
