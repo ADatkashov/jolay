@@ -48,27 +48,48 @@ class DemoApi extends ApiClient {
   }
 
   dynamic _route(String method, String path, Map<String, dynamic>? q) {
-    if (path == '/customers/me') return {'id': 'u1', 'fullName': 'Айдос Нурланов', 'phone': '+77012345678', 'email': 'aidos@example.kz', 'roles': ['CUSTOMER'], 'locale': 'ru'};
-    if (path == '/rides/active') return _active;
-    if (path == '/rides/history') return switch (q?['tab']) { 'completed' => _done, 'ongoing' => [_active], _ => _cancelled };
-    if (path == '/customers/me/addresses') return [
+    if (path == '/customers/me') {
+      return {'id': 'u1', 'fullName': 'Айдос Нурланов', 'phone': '+77012345678', 'email': 'aidos@example.kz', 'roles': ['CUSTOMER'], 'locale': 'ru'};
+    }
+    if (path == '/rides/active') {
+      return _active;
+    }
+    if (path == '/rides/history') {
+      return switch (q?['tab']) { 'completed' => _done, 'ongoing' => [_active], _ => _cancelled };
+    }
+    if (path == '/customers/me/addresses') {
+      return [
       {'name': 'Дом', 'address': 'мкр. Самал-2, 58', 'lat': 43.2338, 'lng': 76.9567},
       {'name': 'Работа', 'address': 'пр. Аль-Фараби, 77', 'lat': 43.2182, 'lng': 76.9288},
     ];
-    if (path == '/customers/me/recent-destinations') return _places.take(3).toList();
-    if (path == '/geo/places') return _places;
-    if (path == '/geo/reverse') return {'name': 'пр. Достык, 180', 'address': 'Алматы', 'lat': 43.2565, 'lng': 76.9285};
-    if (path == '/wallet') return {'balance': '12500.00'};
-    if (path == '/wallet/transactions') return [
+    }
+    if (path == '/customers/me/recent-destinations') {
+      return _places.take(3).toList();
+    }
+    if (path == '/geo/places') {
+      return _places;
+    }
+    if (path == '/geo/reverse') {
+      return {'name': 'пр. Достык, 180', 'address': 'Алматы', 'lat': 43.2565, 'lng': 76.9285};
+    }
+    if (path == '/wallet') {
+      return {'balance': '12500.00'};
+    }
+    if (path == '/wallet/transactions') {
+      return [
       {'type': 'TOP_UP', 'description': 'Пополнение картой', 'amount': '10000.00', 'created_at': '2026-11-05T12:00:00Z'},
       {'type': 'RIDE', 'description': 'Поездка · Аэропорт Алматы', 'amount': '-4200.00', 'created_at': '2026-11-04T10:50:00Z'},
       {'type': 'RIDE', 'description': 'Поездка · Мега Парк', 'amount': '-1590.00', 'created_at': '2026-11-02T18:25:00Z'},
       {'type': 'TOP_UP', 'description': 'Пополнение картой', 'amount': '5000.00', 'created_at': '2026-10-30T09:00:00Z'},
     ];
-    if (path == '/support/tickets') return [
+    }
+    if (path == '/support/tickets') {
+      return [
       {'id': 't1', 'subject': 'Не прошла оплата поездки', 'status': 'OPEN', 'created_at': '2026-11-05T15:00:00Z'},
     ];
-    if (path == '/rides/estimate') return {
+    }
+    if (path == '/rides/estimate') {
+      return {
       'distanceM': 7400, 'durationS': 960, 'routeSource': 'DEMO',
       'categories': [
         _cat('ECONOMY', 'Эконом', 'Бюджетная поездка', 4, 240, '1340.00'),
@@ -77,16 +98,26 @@ class DemoApi extends ApiClient {
         _cat('MINIVAN', 'Минивэн', 'До 6 пассажиров', 6, 540, '2650.00'),
       ],
     };
-    if (path.startsWith('/rides/') && path.endsWith('/fare')) return {'baseFare': '500', 'distanceFare': '640', 'timeFare': '200', 'fees': '0', 'discount': '0', 'total': '1340.00'};
-    if (path.startsWith('/rides/')) return _active;
-    if (path == '/stores') return [
+    }
+    if (path.startsWith('/rides/') && path.endsWith('/fare')) {
+      return {'baseFare': '500', 'distanceFare': '640', 'timeFare': '200', 'fees': '0', 'discount': '0', 'total': '1340.00'};
+    }
+    if (path.startsWith('/rides/')) {
+      return _active;
+    }
+    if (path == '/stores') {
+      return [
       {'id': 's1', 'name': 'Бургерная Almaty Grill', 'category': 'FOOD', 'prep_minutes': 20, 'distance_m': 1200},
       {'id': 's2', 'name': 'Small Супермаркет', 'category': 'GROCERY', 'prep_minutes': 15, 'distance_m': 800},
       {'id': 's3', 'name': 'Аптека Сади', 'category': 'PHARMACY', 'prep_minutes': 10, 'distance_m': 1700},
       {'id': 's4', 'name': 'Dastarkhan Kitchen', 'category': 'FOOD', 'prep_minutes': 30, 'distance_m': 2400},
     ].where((s) => q?['category'] == null || s['category'] == q!['category']).toList();
-    if (path == '/store-orders') return [];
-    if (path.startsWith('/stores/') && path.endsWith('/menu')) return {
+    }
+    if (path == '/store-orders') {
+      return [];
+    }
+    if (path.startsWith('/stores/') && path.endsWith('/menu')) {
+      return {
       'id': 's1', 'name': 'Бургерная Almaty Grill', 'accepting_orders': true,
       'products': [
         {'id': 'p1', 'name': 'Классик бургер', 'description': 'Говядина, чеддер, соус', 'section': 'Бургеры', 'price': '2200.00'},
@@ -95,7 +126,10 @@ class DemoApi extends ApiClient {
         {'id': 'p4', 'name': 'Лимонад домашний', 'description': '0.5 л', 'section': 'Напитки', 'price': '800.00'},
       ],
     };
-    if (path.startsWith('/catalog/legal/')) return {'title': 'Документ', 'version': '1.0', 'body': 'Демонстрационный текст документа JOLAY.'};
+    }
+    if (path.startsWith('/catalog/legal/')) {
+      return {'title': 'Документ', 'version': '1.0', 'body': 'Демонстрационный текст документа JOLAY.'};
+    }
     return method == 'GET' ? <dynamic>[] : <String, dynamic>{};
   }
 
