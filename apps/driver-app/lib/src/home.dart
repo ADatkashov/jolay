@@ -253,7 +253,7 @@ class _HomeState extends ConsumerState<DriverHome> {
       ]))),
       if (_offer != null && _ride == null) Align(alignment: Alignment.bottomCenter, child: _OfferCard(offer: _offer!, left: _left, busy: _busy,
         onAccept: () => _act('/drivers/offers/${_offer!['offer_id']}/accept'), onDecline: () => _act('/drivers/offers/${_offer!['offer_id']}/decline'))),
-      if (_ride != null) Align(alignment: Alignment.bottomCenter, child: _ActiveTrip(ride: _ride!, busy: _busy, onAct: _act)),
+      if (_ride != null) Align(alignment: Alignment.bottomCenter, child: ActiveTripCard(ride: _ride!, busy: _busy, onAct: _act)),
       if (_dOffer != null && _ride == null && _delivery == null) Align(alignment: Alignment.bottomCenter, child: _DeliveryOfferCard(offer: _dOffer!, left: _left, busy: _busy,
         onAccept: () => _act('/drivers/delivery-offers/${_dOffer!['offer_id']}/accept'), onDecline: () => _act('/drivers/delivery-offers/${_dOffer!['offer_id']}/decline'))),
       if (_delivery != null) Align(alignment: Alignment.bottomCenter, child: ActiveDeliveryCard(delivery: _delivery!, busy: _busy, onAct: _act, onRefresh: _refresh)),
@@ -396,11 +396,11 @@ class ActiveDeliveryCard extends ConsumerWidget {
   }
 }
 
-class _ActiveTrip extends ConsumerWidget {
+class ActiveTripCard extends ConsumerWidget {
   final Map<String, dynamic> ride;
   final bool busy;
   final Future<void> Function(String path) onAct;
-  const _ActiveTrip({required this.ride, required this.busy, required this.onAct});
+  const ActiveTripCard({super.key, required this.ride, required this.busy, required this.onAct});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -423,6 +423,10 @@ class _ActiveTrip extends ConsumerWidget {
           Expanded(child: Text(ride['customerName']?.toString() ?? ref.t('driver.passenger'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18))),
           Text(formatKzt(ride['estimatedFare']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         ]),
+        // The platform pays a promo discount, so a cash rider hands over less than the fare: tell the driver exactly how much to collect.
+        if (ride['paymentMethod'] == 'CASH' && (double.tryParse('${ride['promoDiscount'] ?? 0}') ?? 0) > 0)
+          Padding(padding: const EdgeInsets.only(top: 8), child: Container(key: const Key('promo-cash'), padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: JolayColors.yellow, borderRadius: BorderRadius.circular(10)),
+              child: Row(children: [const Icon(Icons.payments_outlined), const SizedBox(width: 8), Expanded(child: Text(ref.t('driver.collectPromo'), style: const TextStyle(fontWeight: FontWeight.w700))), Text(formatKzt(ride['payable']), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))]))),
         const SizedBox(height: 8),
         Row(children: [Icon(toPickup ? Icons.circle : Icons.flag, size: 12, color: toPickup ? JolayColors.success : JolayColors.error), const SizedBox(width: 8), Expanded(child: Text((toPickup ? ride['pickupAddress'] : ride['dropoffAddress']).toString()))]),
         const SizedBox(height: 12),

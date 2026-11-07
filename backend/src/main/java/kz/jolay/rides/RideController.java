@@ -20,7 +20,7 @@ public class RideController {
 
     @PostMapping("/estimate")
     public EstimateResponse estimate(@Valid @RequestBody EstimateRequest r, @RequestHeader(value = "Accept-Language", defaultValue = "en") String lang) {
-        return rides.estimate(r, lang.length() >= 2 ? lang.substring(0, 2) : "en");
+        return rides.estimate(r, lang.length() >= 2 ? lang.substring(0, 2) : "en", Auth.id());
     }
 
     @PostMapping @ResponseStatus(HttpStatus.CREATED)

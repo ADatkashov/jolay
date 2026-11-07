@@ -240,6 +240,44 @@ void legalAndSosTests() {
     await t.pumpWidget(const SizedBox());
   });
 
+  testWidgets('promo code: a rejected code is explained inline, an accepted one shows the payable price and is sent with the ride request', (t) async {
+    tallScreen(t);
+    final plain = {
+      'distanceM': 7400, 'durationS': 960, 'routeSource': 'ESTIMATED',
+      'categories': [{'code': 'ECONOMY', 'name': 'JOLAY Economy', 'description': 'Affordable', 'capacity': 4, 'etaSeconds': 180, 'available': true, 'fare': _fare('1340.00')}],
+    };
+    final discounted = {
+      ...plain,
+      'categories': [{'code': 'ECONOMY', 'name': 'JOLAY Economy', 'description': 'Affordable', 'capacity': 4, 'etaSeconds': 180, 'available': true, 'fare': {..._fare('1340.00'), 'discount': '268.00', 'payable': '1072.00'}}],
+    };
+    // rejected code
+    await t.pumpWidget(app(const RideOptionsScreen(), api: _Rejecting(plain), overrides: [localeProvider.overrideWith(() => _En()), draftProvider.overrideWith(() => _Draft())]));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.byKey(const Key('promo-field')));
+    await t.enterText(find.byKey(const Key('promo-field')), 'BAD');
+    await t.tap(find.byKey(const Key('promo-apply')));
+    await t.pumpAndSettle();
+    expect(find.text('This promo code does not exist'), findsOneWidget);
+    expect(find.byKey(const Key('gross-ECONOMY')), findsNothing);
+
+    // accepted code
+    final ok = FakeApi({'POST /rides/estimate': discounted, 'POST /rides': rideJson(status: 'SEARCHING_DRIVER', paymentStatus: 'NONE', method: 'CASH')});
+    await t.pumpWidget(app(const RideOptionsScreen(), api: ok, overrides: [localeProvider.overrideWith(() => _En()), draftProvider.overrideWith(() => _Draft())]));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.byKey(const Key('promo-field')));
+    await t.enterText(find.byKey(const Key('promo-field')), 'WELCOME');
+    await t.tap(find.byKey(const Key('promo-apply')));
+    await t.pumpAndSettle();
+    expect(find.text('Promo code applied'), findsOneWidget);
+    expect(find.byKey(const Key('gross-ECONOMY')), findsOneWidget);                                   // the full price is struck through
+    expect(find.textContaining(RegExp(r'1[\s\u00A0\u202F]072')), findsOneWidget);                      // the payable price is shown
+    await t.ensureVisible(find.byKey(const Key('confirm-ride')));
+    await t.tap(find.byKey(const Key('confirm-ride')));
+    await t.pump();
+    expect((ok.calls.firstWhere((c) => c.path == '/rides').body as Map)['promoCode'], 'WELCOME');
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('sharing a trip creates a link and copies it to the clipboard', (t) async {
     tallScreen(t);
     String? copied;
@@ -283,4 +321,15 @@ class _Ru extends LocaleController { @override Locale build() => const Locale('r
 class _Draft extends DraftController {
   @override
   Draft build() => const Draft(pickup: Place('Dostyk Plaza', 'Dostyk Plaza', 43.2335, 76.9567), dropoff: Place('Mega', 'Mega Alma-Ata', 43.2025, 76.9066));
+}
+
+/// Estimate endpoint that rejects any promo code the way the backend does.
+class _Rejecting extends FakeApi {
+  final Map<String, dynamic> plain;
+  _Rejecting(this.plain) : super({});
+  @override
+  Future<dynamic> request(String method, String path, {Object? body, Map<String, dynamic>? query, Map<String, String>? headers, bool auth = true, bool retry = true}) async {
+    if (method == 'POST' && path == '/rides/estimate' && body is Map && body['promoCode'] != null) throw ApiException(400, 'promo_not_found', 'This promo code does not exist');
+    return plain;
+  }
 }

@@ -96,6 +96,8 @@ class _OptionsState extends ConsumerState<RideOptionsScreen> {
   String _category = 'ECONOMY';
   String _payment = 'CASH';
   bool _busy = false;
+  final _promoCtl = TextEditingController();
+  String? _promo, _promoError;           // the code the backend accepted, and the last rejection (localized key)
   late final String _idemKey = 'ride-${DateTime.now().microsecondsSinceEpoch}';
 
   @override
@@ -108,11 +110,28 @@ class _OptionsState extends ConsumerState<RideOptionsScreen> {
     if (drop == null) { setState(() => _error = 'common.error'); return; }
     try {
       final j = await ref.read(apiProvider).post('/rides/estimate', headers: {'Accept-Language': ref.read(localeProvider).languageCode},
-          body: {'pickup': {'lat': pickup.lat, 'lng': pickup.lng}, 'dropoff': {'lat': drop.lat, 'lng': drop.lng}}) as Map<String, dynamic>;
+          body: {'pickup': {'lat': pickup.lat, 'lng': pickup.lng}, 'dropoff': {'lat': drop.lat, 'lng': drop.lng}, if (_promo != null) 'promoCode': _promo}) as Map<String, dynamic>;
       if (mounted) setState(() => _est = Estimate.fromJson(j));
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e is ApiException ? (e.isNetwork ? 'err.network' : 'err.${e.code}') : 'common.error');
+    }
+  }
+
+  /// Tries the typed promo code against the backend (the estimate endpoint validates it); a rejected code is shown inline and not kept.
+  Future<void> _applyPromo() async {
+    final code = _promoCtl.text.trim();
+    if (code.isEmpty) { setState(() { _promo = null; _promoError = null; }); await _load(); return; }
+    final d = ref.read(draftProvider);
+    final pickup = d.pickup ?? almatyCenter, drop = d.dropoff;
+    if (drop == null) return;
+    try {
+      final j = await ref.read(apiProvider).post('/rides/estimate', headers: {'Accept-Language': ref.read(localeProvider).languageCode},
+          body: {'pickup': {'lat': pickup.lat, 'lng': pickup.lng}, 'dropoff': {'lat': drop.lat, 'lng': drop.lng}, 'promoCode': code}) as Map<String, dynamic>;
+      if (mounted) setState(() { _promo = code; _promoError = null; _est = Estimate.fromJson(j); });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _promo = null; _promoError = e is ApiException && e.code.startsWith('promo_') ? 'err.${e.code}' : (e is ApiException && e.isNetwork ? 'err.network' : 'common.error'); });
     }
   }
 
@@ -124,7 +143,7 @@ class _OptionsState extends ConsumerState<RideOptionsScreen> {
       final j = await ref.read(apiProvider).post('/rides', headers: {'Idempotency-Key': _idemKey}, body: {
         'pickup': {'point': {'lat': pickup.lat, 'lng': pickup.lng}, if (pickup.address.isNotEmpty) 'address': pickup.address},
         'dropoff': {'point': {'lat': drop.lat, 'lng': drop.lng}, 'address': drop.address.isNotEmpty ? drop.address : drop.name},
-        'category': _category, 'paymentMethod': _payment,
+        'category': _category, 'paymentMethod': _payment, if (_promo != null) 'promoCode': _promo,
       }) as Map<String, dynamic>;
       if (mounted) context.pushReplacement('/ride/${j['id']}');
     } catch (e) { if (mounted) showError(context, ref, e); } finally { if (mounted) setState(() => _busy = false); }
@@ -156,7 +175,14 @@ class _OptionsState extends ConsumerState<RideOptionsScreen> {
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, children: [for (final m in const [('CASH', 'pay.cash', Icons.payments_outlined), ('CARD', 'pay.card', Icons.credit_card), ('WALLET', 'pay.wallet', Icons.account_balance_wallet_outlined)])
                   ChoiceChip(key: Key('pay-${m.$1}'), avatar: Icon(m.$3, size: 18), label: Text(ref.t(m.$2)), selected: _payment == m.$1, selectedColor: JolayColors.yellow, onSelected: (_) => setState(() => _payment = m.$1))]),
-                const SizedBox(height: 6),
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(child: TextField(key: const Key('promo-field'), controller: _promoCtl, textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: ref.t('promo.have'), isDense: true,
+                      errorText: _promoError == null ? null : ref.t(_promoError!), helperText: _promo == null ? null : ref.t('promo.applied')))),
+                  const SizedBox(width: 8),
+                  OutlinedButton(key: const Key('promo-apply'), onPressed: _applyPromo, style: OutlinedButton.styleFrom(minimumSize: const Size(90, 44)), child: Text(ref.t('promo.apply'))),
+                ]),
+                const SizedBox(height: 10),
                 Text(ref.t('ride.cancelFee'), style: const TextStyle(fontSize: 12, color: JolayColors.textSecondary)),
               ])),
         SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 12), child: JolayButton(key: const Key('confirm-ride'), label: ref.t('ride.confirm'), busy: _busy, onPressed: _est == null ? null : _confirm))),
@@ -186,7 +212,8 @@ class _CategoryCard extends StatelessWidget {
               Text(c.available ? '${formatDuration(c.etaSeconds ?? 0)} $etaLabel · ${c.capacity} $seatsLabel' : '$noDrivers · ${c.capacity} $seatsLabel', style: TextStyle(fontSize: 12, color: c.available ? JolayColors.success : JolayColors.textSecondary)),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(formatKzt(c.fare.total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              if (c.fare.payable != c.fare.total) Text(formatKzt(c.fare.total), key: Key('gross-${c.code}'), style: const TextStyle(decoration: TextDecoration.lineThrough, color: JolayColors.textSecondary, fontSize: 12)),
+              Text(formatKzt(c.fare.payable), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
               if (c.fare.multiplier > 1)
                 Text('$highDemand ×${c.fare.multiplier.toStringAsFixed(c.fare.multiplier * 10 % 1 == 0 ? 1 : 2)}', key: Key('peak-${c.code}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: JolayColors.error)),
             ]),
@@ -432,7 +459,7 @@ class _CompletedState extends ConsumerState<_Completed> {
           const CircleAvatar(radius: 32, backgroundColor: JolayColors.success, child: Icon(Icons.check, color: Colors.white, size: 36)),
           const SizedBox(height: 12),
           Text(ref.t('ride.total'), style: const TextStyle(color: JolayColors.textSecondary)),
-          Text(formatKzt(r.finalFare), key: const Key('final-fare'), style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900)),
+          Text(formatKzt(r.payable), key: const Key('final-fare'), style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900)),
           const SizedBox(height: 6),
           Chip(label: Text(r.paymentStatus == 'PAID' ? ref.t('ride.paid') : r.paymentStatus == 'FAILED' ? ref.t('ride.paymentFailed') : ref.t('ride.paymentPending')),
               backgroundColor: r.paymentStatus == 'PAID' ? const Color(0xFFD9F3E8) : r.paymentStatus == 'FAILED' ? const Color(0xFFFDE1E2) : const Color(0xFFFDF0CF), side: BorderSide.none),
@@ -440,7 +467,8 @@ class _CompletedState extends ConsumerState<_Completed> {
         const SizedBox(height: 16),
         JolayCard(child: Column(children: [
           _row(ref.t('ride.distance'), '${formatKm(r.distanceM)} ${ref.t('ride.km')}'), _row(ref.t('ride.duration'), '${formatDuration(r.durationS)} ${ref.t('ride.eta')}'),
-          if (f != null) ...[const Divider(), _row(ref.t('ride.base'), formatKzt(f['base_fare'])), _row(ref.t('ride.distanceFare'), formatKzt(f['distance_fare'])), _row(ref.t('ride.timeFare'), formatKzt(f['time_fare'])), if (double.parse(f['fees'].toString()) > 0) _row(ref.t('ride.fees'), formatKzt(f['fees']))],
+          if (f != null) ...[const Divider(), _row(ref.t('ride.base'), formatKzt(f['base_fare'])), _row(ref.t('ride.distanceFare'), formatKzt(f['distance_fare'])), _row(ref.t('ride.timeFare'), formatKzt(f['time_fare'])), if (double.parse(f['fees'].toString()) > 0) _row(ref.t('ride.fees'), formatKzt(f['fees'])),
+            if (r.hasPromo) _row('${ref.t('promo.discount')} (${r.promoCode ?? ''})', '−${formatKzt(r.promoDiscount)}')],
           const Divider(), _row(ref.t('ride.payment'), switch (r.paymentMethod) { 'CASH' => ref.t('pay.cash'), 'CARD' => ref.t('pay.card'), _ => ref.t('pay.wallet') }),
         ])),
         const SizedBox(height: 16),

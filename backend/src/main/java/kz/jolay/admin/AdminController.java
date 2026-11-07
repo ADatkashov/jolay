@@ -239,6 +239,58 @@ public class AdminController {
         audit.log(Auth.id(), role(), "PEAK_WINDOW_DELETED", "peak_window", id, Map.of());
     }
 
+    // ---------------- promo codes ----------------
+    public record PromoRequest(@NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{3,30}") String code, @Size(max = 200) String description,
+                               @NotBlank @Pattern(regexp = "PERCENT|FIXED") String kind, @NotNull @DecimalMin("0.01") @DecimalMax("1000000") BigDecimal value,
+                               @DecimalMin("0.01") @DecimalMax("1000000") BigDecimal maxDiscount, @DecimalMin("0") @DecimalMax("1000000") BigDecimal minFare,
+                               String startsAt, String endsAt, @Min(1) Integer maxRedemptions, @Min(1) @Max(1000) Integer perUserLimit, boolean firstRideOnly, boolean active) {}
+
+    private void checkPromo(PromoRequest r) {
+        if ("PERCENT".equals(r.kind()) && r.value().compareTo(new BigDecimal("100")) > 0) throw ApiException.badRequest("invalid_promo", "A percentage cannot exceed 100");
+        try {
+            if (r.startsAt() != null && !r.startsAt().isBlank() && r.endsAt() != null && !r.endsAt().isBlank()
+                    && !java.time.OffsetDateTime.parse(r.endsAt()).isAfter(java.time.OffsetDateTime.parse(r.startsAt()))) throw ApiException.badRequest("invalid_promo", "The end must be after the start");
+            if (r.startsAt() != null && !r.startsAt().isBlank()) java.time.OffsetDateTime.parse(r.startsAt());
+            if (r.endsAt() != null && !r.endsAt().isBlank()) java.time.OffsetDateTime.parse(r.endsAt());
+        } catch (java.time.format.DateTimeParseException e) { throw ApiException.badRequest("invalid_promo", "Dates must be ISO-8601 with an offset, e.g. 2026-12-01T00:00:00+05:00"); }
+    }
+    private static String blankToNull(String s) { return s == null || s.isBlank() ? null : s; }
+
+    @GetMapping("/promos") @PreAuthorize(ANY)
+    public List<Map<String, Object>> promos() {
+        return jdbc.sql("""
+                SELECT p.id, p.code, p.description, p.kind, p.value, p.max_discount, p.min_fare, p.starts_at, p.ends_at, p.max_redemptions, p.per_user_limit, p.first_ride_only, p.active,
+                       (SELECT count(*) FROM promo_redemptions x WHERE x.promo_id=p.id AND x.status='APPLIED') AS applied,
+                       (SELECT count(*) FROM promo_redemptions x WHERE x.promo_id=p.id AND x.status='RESERVED') AS reserved,
+                       (SELECT COALESCE(sum(x.discount),0) FROM promo_redemptions x WHERE x.promo_id=p.id AND x.status='APPLIED') AS total_discount
+                FROM promo_codes p ORDER BY p.created_at DESC""").query().listOfRows();
+    }
+
+    @PostMapping("/promos") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize(FIN) @Transactional
+    public Map<String, Object> createPromo(@Valid @RequestBody PromoRequest r) {
+        checkPromo(r);
+        try {
+            UUID id = jdbc.sql("INSERT INTO promo_codes(code,description,kind,value,max_discount,min_fare,starts_at,ends_at,max_redemptions,per_user_limit,first_ride_only,active) VALUES (:c,:d,:k,:v,:md,:mf,:s::timestamptz,:e::timestamptz,:mr,:pu,:fr,:a) RETURNING id")
+                    .param("c", r.code().toUpperCase()).param("d", r.description()).param("k", r.kind()).param("v", r.value()).param("md", r.maxDiscount()).param("mf", r.minFare() == null ? BigDecimal.ZERO : r.minFare())
+                    .param("s", blankToNull(r.startsAt())).param("e", blankToNull(r.endsAt())).param("mr", r.maxRedemptions()).param("pu", r.perUserLimit() == null ? 1 : r.perUserLimit()).param("fr", r.firstRideOnly()).param("a", r.active())
+                    .query(UUID.class).single();
+            audit.log(Auth.id(), role(), "PROMO_CREATED", "promo_code", id, Map.of("after", r.toString()));
+            return Map.of("id", id);
+        } catch (org.springframework.dao.DuplicateKeyException e) { throw ApiException.conflict("promo_exists", "A promo code with this name already exists"); }
+    }
+
+    /** The code itself cannot be renamed (riders may have it); everything else can change, and a code is switched off with active=false rather than deleted. */
+    @PutMapping("/promos/{id}") @PreAuthorize(FIN) @Transactional
+    public Map<String, Object> updatePromo(@PathVariable UUID id, @Valid @RequestBody PromoRequest r) {
+        checkPromo(r);
+        int n = jdbc.sql("UPDATE promo_codes SET description=:d, kind=:k, value=:v, max_discount=:md, min_fare=:mf, starts_at=:s::timestamptz, ends_at=:e::timestamptz, max_redemptions=:mr, per_user_limit=:pu, first_ride_only=:fr, active=:a, updated_at=now() WHERE id=:id AND code=:c")
+                .param("c", r.code().toUpperCase()).param("d", r.description()).param("k", r.kind()).param("v", r.value()).param("md", r.maxDiscount()).param("mf", r.minFare() == null ? BigDecimal.ZERO : r.minFare())
+                .param("s", blankToNull(r.startsAt())).param("e", blankToNull(r.endsAt())).param("mr", r.maxRedemptions()).param("pu", r.perUserLimit() == null ? 1 : r.perUserLimit()).param("fr", r.firstRideOnly()).param("a", r.active()).param("id", id).update();
+        if (n == 0) throw ApiException.notFound("promo_not_found", "Promo code not found (the code itself cannot be changed)");
+        audit.log(Auth.id(), role(), "PROMO_UPDATED", "promo_code", id, Map.of("after", r.toString()));
+        return Map.of("id", id);
+    }
+
     // ---------------- payments / refunds ----------------
     @GetMapping("/payments") @PreAuthorize(FIN)
     public List<Map<String, Object>> payments(@RequestParam(required = false) String status) {

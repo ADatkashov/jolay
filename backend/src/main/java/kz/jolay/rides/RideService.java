@@ -35,31 +35,35 @@ public class RideService {
     private final MeterRegistry metrics;
     private final RiskService risk;
     private final kz.jolay.referral.ReferralService referrals;
+    private final kz.jolay.promo.PromoService promos;
 
     public RideService(JdbcClient jdbc, GeoService geo, RouteProvider routes, PricingService pricing, RideStateMachine sm, DispatchService dispatch,
-                       PaymentService payments, LedgerService ledger, Notifier notifier, AppSettings settings, MeterRegistry metrics, RiskService risk, kz.jolay.referral.ReferralService referrals) {
-        this.risk = risk; this.referrals = referrals;
+                       PaymentService payments, LedgerService ledger, Notifier notifier, AppSettings settings, MeterRegistry metrics, RiskService risk, kz.jolay.referral.ReferralService referrals, kz.jolay.promo.PromoService promos) {
+        this.risk = risk; this.referrals = referrals; this.promos = promos;
         this.jdbc = jdbc; this.geo = geo; this.routes = routes; this.pricing = pricing; this.sm = sm; this.dispatch = dispatch;
         this.payments = payments; this.ledger = ledger; this.notifier = notifier; this.settings = settings; this.metrics = metrics;
     }
 
-    private static FareView view(PricingService.Fare f) {
-        return new FareView(f.baseFare(), f.distanceFare(), f.timeFare(), f.fees(), f.discount(), f.multiplier(), f.total(), "KZT");
+    private static FareView view(PricingService.Fare f, BigDecimal promoDiscount) {
+        BigDecimal d = f.discount().add(promoDiscount);
+        return new FareView(f.baseFare(), f.distanceFare(), f.timeFare(), f.fees(), d, f.multiplier(), f.total(), f.total().subtract(promoDiscount), "KZT");
     }
 
     // ---------------- estimate ----------------
-    public EstimateResponse estimate(EstimateRequest r, String lang) {
+    public EstimateResponse estimate(EstimateRequest r, String lang, UUID userId) {
         UUID city = geo.cityFor(r.pickup(), "pickup_out_of_zone");
         if (!city.equals(geo.cityFor(r.dropoff(), "dropoff_out_of_zone"))) throw ApiException.badRequest("intercity_unsupported", "Pickup and destination must be in the same city");
         var route = routes.route(r.pickup(), r.dropoff());
         String l = switch (lang == null ? "en" : lang) { case "kk" -> "kk"; case "ru" -> "ru"; default -> "en"; };
         List<CategoryEstimate> out = new ArrayList<>();
         BigDecimal peak = pricing.peakMultiplierNow(city);
+        var promo = r.promoCode() == null || r.promoCode().isBlank() ? null : promos.check(r.promoCode(), userId, false);
         for (var rule : pricing.rules(city)) {
             var cat = jdbc.sql("SELECT name_" + l + " n, desc_" + l + " d, capacity FROM vehicle_categories WHERE code=:c").param("c", rule.category()).query().listOfRows().get(0);
             Integer eta = nearestEta(city, r.pickup(), rule.category());
+            var fare = pricing.compute(rule, route.distanceM(), route.durationS(), null, peak);
             out.add(new CategoryEstimate(rule.category(), (String) cat.get("n"), (String) cat.get("d"), (Integer) cat.get("capacity"),
-                    view(pricing.compute(rule, route.distanceM(), route.durationS(), null, peak)), eta, eta != null));
+                    view(fare, promo == null ? Money.ZERO : promo.discountFor(fare.total())), eta, eta != null));
         }
         return new EstimateResponse(route.distanceM(), route.durationS(), route.source(), out);
     }
@@ -100,9 +104,13 @@ public class RideService {
         BigDecimal peak = pricing.peakMultiplierNow(city);
         var fare = pricing.compute(rule, route.distanceM(), route.durationS(), null, peak);
 
+        var promo = r.promoCode() == null || r.promoCode().isBlank() ? null : promos.check(r.promoCode(), customerId, true);
+        BigDecimal promoDiscount = promo == null ? Money.ZERO : promo.discountFor(fare.total());
+        if (promo != null && promoDiscount.signum() == 0) throw ApiException.badRequest("promo_min_fare", "The fare is below the minimum for this promo code");
+
         if ("WALLET".equals(r.paymentMethod())) {
             BigDecimal bal = ledger.balance(ledger.userAccount(customerId, "CUSTOMER_WALLET"));
-            if (bal.compareTo(fare.total()) < 0) throw ApiException.conflict("insufficient_funds", "Wallet balance is lower than the estimated fare");
+            if (bal.compareTo(fare.total().subtract(promoDiscount)) < 0) throw ApiException.conflict("insufficient_funds", "Wallet balance is lower than the estimated fare");
         }
         String pAddr = blank(r.pickup().address()) ? geo.reverse(r.pickup().point()) : r.pickup().address().trim();
         String dAddr = blank(r.dropoff().address()) ? geo.reverse(r.dropoff().point()) : r.dropoff().address().trim();
@@ -111,16 +119,17 @@ public class RideService {
         try {
             id = jdbc.sql("""
                     INSERT INTO rides(customer_id,city_id,category_code,status,pickup_address,pickup,dropoff_address,dropoff,est_distance_m,est_duration_s,est_fare,
-                                      payment_method,pricing_rule_id,idempotency_key,search_started_at,surge_multiplier)
+                                      payment_method,pricing_rule_id,idempotency_key,search_started_at,surge_multiplier,promo_code,promo_est_discount)
                     VALUES (:c,:city,:cat,'CREATED',:pa,ST_SetSRID(ST_MakePoint(:plng,:plat),4326)::geography,:da,ST_SetSRID(ST_MakePoint(:dlng,:dlat),4326)::geography,
-                            :dist,:dur,:fare,:pm,:rule,:idem,now(),:surge) RETURNING id""")
+                            :dist,:dur,:fare,:pm,:rule,:idem,now(),:surge,:pcode,:pdisc) RETURNING id""")
                     .param("c", customerId).param("city", city).param("cat", r.category()).param("pa", pAddr).param("plng", r.pickup().point().lng()).param("plat", r.pickup().point().lat())
                     .param("da", dAddr).param("dlng", r.dropoff().point().lng()).param("dlat", r.dropoff().point().lat())
                     .param("dist", route.distanceM()).param("dur", route.durationS()).param("fare", fare.total()).param("pm", r.paymentMethod())
-                    .param("rule", rule.id()).param("idem", idempotencyKey).param("surge", peak.max(rule.demandMultiplier())).query(UUID.class).single();
+                    .param("rule", rule.id()).param("idem", idempotencyKey).param("surge", peak.max(rule.demandMultiplier())).param("pcode", promo == null ? null : promo.code()).param("pdisc", promoDiscount).query(UUID.class).single();
         } catch (DuplicateKeyException e) {
             throw ApiException.conflict("active_ride_exists", "You already have an active ride");
         }
+        if (promo != null) promos.reserve(promo, customerId, id);
         jdbc.sql("INSERT INTO ride_status_history(ride_id,from_status,to_status,actor) VALUES (:r,NULL,'CREATED',:a)").param("r", id).param("a", "CUSTOMER:" + customerId).update();
         sm.move(id, RideStatus.CREATED, RideStatus.SEARCHING_DRIVER, "SYSTEM", null, null);
         metrics.counter("jolay.rides.created").increment();
@@ -135,6 +144,7 @@ public class RideService {
         var m = jdbc.sql("""
                 SELECT r.*, ST_X(r.pickup::geometry) plng, ST_Y(r.pickup::geometry) plat, ST_X(r.dropoff::geometry) dlng, ST_Y(r.dropoff::geometry) dlat,
                        cu.full_name AS cname, cu.phone AS cphone,
+                       (SELECT x.discount FROM promo_redemptions x WHERE x.ride_id=r.id AND x.status='APPLIED') AS promo_final_discount,
                        du.full_name AS dname, du.phone AS dphone, d.rating_avg, v.brand, v.model, v.color, v.plate,
                        ST_Y(dl.location::geometry) dlat_now, ST_X(dl.location::geometry) dlng_now,
                        (SELECT stars FROM ratings rt WHERE rt.ride_id=r.id AND rt.from_user_id=r.customer_id) AS stars
@@ -163,6 +173,7 @@ public class RideService {
             double d = kz.jolay.geography.EstimatedRouteProvider.haversineM(dv.lat(), dv.lng(), (Double) m.get("plat"), (Double) m.get("plng"));
             eta = (int) Math.round(d * settings.getDecimal("rides.detour_factor").doubleValue() / (settings.getDecimal("rides.avg_speed_kmh").doubleValue() / 3.6));
         }
+        BigDecimal promoDiscount = m.get("promo_final_discount") != null ? (BigDecimal) m.get("promo_final_discount") : (BigDecimal) m.get("promo_est_discount");
         return new RideView((UUID) m.get("id"), status, (String) m.get("category_code"), (String) m.get("pickup_address"),
                 new GeoPoint((Double) m.get("plat"), (Double) m.get("plng")), (String) m.get("dropoff_address"),
                 new GeoPoint((Double) m.get("dlat"), (Double) m.get("dlng")),
@@ -170,7 +181,8 @@ public class RideService {
                 m.get("actual_duration_s") != null ? (Integer) m.get("actual_duration_s") : (Integer) m.get("est_duration_s"),
                 (BigDecimal) m.get("est_fare"), (BigDecimal) m.get("final_fare"), (String) m.get("payment_method"), (String) m.get("payment_status"),
                 (BigDecimal) m.get("cancellation_fee"), dv, (UUID) m.get("customer_id"), (String) m.get("cname"), "IN_PROGRESS".equals(status) || status.startsWith("DRIVER") ? (String) m.get("cphone") : null,
-                eta, m.get("created_at"), m.get("completed_at"), (Integer) m.get("stars"));
+                eta, m.get("created_at"), m.get("completed_at"), (Integer) m.get("stars"),
+                (String) m.get("promo_code"), promoDiscount, ((BigDecimal) (m.get("final_fare") != null ? m.get("final_fare") : m.get("est_fare"))).subtract(promoDiscount));
     }
 
     public Optional<RideView> activeForCustomer(UUID customerId) {
@@ -293,12 +305,13 @@ public class RideService {
             fare = new PricingService.Fare(fare.baseFare(), fare.distanceFare(), fare.timeFare(), fare.fees(), fare.discount(), fare.multiplier(), cap,
                     rule.commissionRate(), commission, cap.subtract(commission));
         }
+        BigDecimal promoDiscount = promos.applyOnCompletion(rideId, fare.total());
         sm.move(rideId, st, RideStatus.COMPLETED, "DRIVER:" + driverId,
                 ", completed_at=now(), final_fare=:ff, actual_distance_m=:ad, actual_duration_s=:adur", Map.of("ff", fare.total(), "ad", actualDist, "adur", actualDur));
         jdbc.sql("""
                 INSERT INTO ride_fares(ride_id,base_fare,distance_fare,time_fare,fees,discount,multiplier,total,commission_rate,commission,driver_earnings)
                 VALUES (:r,:b,:d,:t,:f,:di,:m,:tot,:cr,:c,:e)""")
-                .param("r", rideId).param("b", fare.baseFare()).param("d", fare.distanceFare()).param("t", fare.timeFare()).param("f", fare.fees()).param("di", fare.discount())
+                .param("r", rideId).param("b", fare.baseFare()).param("d", fare.distanceFare()).param("t", fare.timeFare()).param("f", fare.fees()).param("di", fare.discount().add(promoDiscount))
                 .param("m", fare.multiplier()).param("tot", fare.total()).param("cr", fare.commissionRate()).param("c", fare.commission()).param("e", fare.driverEarnings()).update();
         if (jdbc.sql("UPDATE drivers SET availability='ONLINE', updated_at=now() WHERE user_id=:d AND availability='BUSY'").param("d", driverId).update() == 1)
             jdbc.sql("INSERT INTO driver_status_history(driver_id,from_status,to_status) VALUES (:d,'BUSY','ONLINE')").param("d", driverId).update();

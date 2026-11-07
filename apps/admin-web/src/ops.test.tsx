@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Deliveries, Incidents, Partners } from "./pages/Ops";
-import { PeakWindows } from "./pages/Tables";
+import { PeakWindows, Promos } from "./pages/Tables";
 import { Login } from "./App";
 import Security from "./pages/Security";
 
@@ -173,5 +173,42 @@ describe("Peak-hour windows", () => {
     expect(await screen.findByText("Night")).toBeInTheDocument();
     expect(screen.queryByText("Add peak window")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+});
+
+describe("Promo codes page", () => {
+  it("lists codes with usage, creates one with typed numbers and keeps the code read-only when editing", async () => {
+    const calls: { method: string; url: string; body?: string }[] = [];
+    const rows = [{ id: "p1", code: "WELCOME", description: "New riders", kind: "PERCENT", value: "20.00", max_discount: "300.00", min_fare: "0.00", starts_at: null, ends_at: null, max_redemptions: 100, per_user_limit: 1, first_ride_only: true, active: true, applied: 7, reserved: 1, total_discount: "1800.00" }];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      const method = init?.method ?? "GET";
+      calls.push({ method, url: String(url), body: init?.body as string | undefined });
+      return method === "GET" ? json(rows) : json({ id: "p2" }, method === "POST" ? 201 : 200);
+    });
+    render(<Promos roles={["FINANCE_ADMIN"]} />);
+    expect(await screen.findByText("WELCOME")).toBeInTheDocument();
+    expect(screen.getByText(/20% \(max/)).toBeInTheDocument();
+    expect(screen.getByText(/\(\+1 open\)/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("New promo code"));
+    const code = await screen.findByLabelText("Code");
+    const save = screen.getByText("Save (audited)");
+    expect(save).toBeDisabled();                                   // a code is required
+    fireEvent.change(code, { target: { value: "summer" } });
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "15" } });
+    fireEvent.change(screen.getByLabelText("Total uses (empty = unlimited)"), { target: { value: "50" } });
+    fireEvent.click(save);
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(JSON.parse(calls.find((c) => c.method === "POST")!.body!)).toMatchObject({ code: "SUMMER", kind: "PERCENT", value: 15, maxDiscount: null, minFare: 0, maxRedemptions: 50, perUserLimit: 1, firstRideOnly: false, active: true });
+
+    fireEvent.click(await screen.findByText("Edit"));
+    expect(await screen.findByLabelText("Code")).toBeDisabled();   // the code cannot be renamed
+  });
+
+  it("is read-only for roles that cannot edit prices", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(json([]));
+    render(<Promos roles={["SUPPORT_AGENT"]} />);
+    expect(await screen.findByText("No promo codes yet.")).toBeInTheDocument();
+    expect(screen.queryByText("New promo code")).toBeNull();
   });
 });

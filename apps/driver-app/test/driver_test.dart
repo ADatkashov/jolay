@@ -112,4 +112,17 @@ void main() {
     await t.pump();
     expect(find.byKey(const Key('cash-to-collect')), findsNothing);
   });
+
+  testWidgets('a cash trip with a promo tells the driver the reduced amount to collect; without a promo nothing extra is shown', (t) async {
+    t.view.physicalSize = const Size(800, 2400); t.view.devicePixelRatio = 1.0; addTearDown(t.view.reset);
+    Map<String, dynamic> ride({String discount = '0'}) => {'id': 'r1', 'status': 'DRIVER_ARRIVED', 'customerName': 'Aidar', 'estimatedFare': '1340.00', 'paymentMethod': 'CASH', 'promoDiscount': discount, 'payable': '1240.00',
+        'pickupAddress': 'A', 'dropoffAddress': 'B', 'pickup': {'lat': 43.23, 'lng': 76.95}, 'dropoff': {'lat': 43.2, 'lng': 76.9}};
+    await t.pumpWidget(app(Scaffold(body: ActiveTripCard(ride: ride(discount: '100.00'), busy: false, onAct: (_) async {})), FakeApi({})));
+    await t.pump();
+    expect(find.byKey(const Key('promo-cash')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'1[\s\u00A0\u202F]240')), findsOneWidget);
+    await t.pumpWidget(app(Scaffold(body: ActiveTripCard(ride: ride(), busy: false, onAct: (_) async {})), FakeApi({})));
+    await t.pump();
+    expect(find.byKey(const Key('promo-cash')), findsNothing);
+  });
 }
