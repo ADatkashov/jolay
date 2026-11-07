@@ -99,3 +99,55 @@ class _ChatState extends ConsumerState<SupportChatScreen> {
     );
   }
 }
+
+/// Trusted contacts who get an SMS with a live trip link when the customer presses SOS (up to 3).
+class EmergencyContactsScreen extends ConsumerWidget {
+  const EmergencyContactsScreen({super.key});
+
+  Future<void> _add(BuildContext context, WidgetRef ref) async {
+    final name = TextEditingController(), phone = TextEditingController(text: '+7 ');
+    final form = GlobalKey<FormState>();
+    final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+      title: Text(ref.t('profile.contacts')),
+      content: Form(key: form, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextFormField(key: const Key('contact-name'), controller: name, decoration: InputDecoration(labelText: ref.t('contacts.name')), validator: v(ref, Validators.name)),
+        const SizedBox(height: 8),
+        PhoneField(fieldKey: const Key('contact-phone'), controller: phone),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(ref.t('btn.cancel'))),
+        FilledButton(key: const Key('contact-save'), onPressed: () { if (form.currentState!.validate()) Navigator.pop(c, true); }, child: Text(ref.t('btn.save'))),
+      ],
+    ));
+    if (ok != true) return;
+    try {
+      await ref.read(apiProvider).post('/customers/me/emergency-contacts', body: {'name': name.text.trim(), 'phone': Validators.normalizePhone(phone.text)});
+      ref.invalidate(emergencyContactsProvider);
+    } catch (e) { if (context.mounted) showError(context, ref, e); }
+  }
+
+  Future<void> _remove(BuildContext context, WidgetRef ref, String id) async {
+    try { await ref.read(apiProvider).delete('/customers/me/emergency-contacts/$id'); ref.invalidate(emergencyContactsProvider); }
+    catch (e) { if (context.mounted) showError(context, ref, e); }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = ref.watch(emergencyContactsProvider);
+    return Scaffold(
+      appBar: AppBar(title: Text(ref.t('profile.contacts'))),
+      floatingActionButton: FloatingActionButton.extended(key: const Key('contact-add'), onPressed: () => _add(context, ref), backgroundColor: JolayColors.yellow, foregroundColor: JolayColors.midnight, icon: const Icon(Icons.add), label: Text(ref.t('contacts.add'))),
+      body: c.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => ErrorView(message: ref.t('common.offline'), retryLabel: ref.t('btn.retry'), onRetry: () => ref.invalidate(emergencyContactsProvider)),
+        data: (l) => ListView(padding: const EdgeInsets.all(16), children: [
+          Text(ref.t('contacts.hint'), style: const TextStyle(color: JolayColors.textSecondary)),
+          const SizedBox(height: 12),
+          if (l.isEmpty) Padding(padding: const EdgeInsets.only(top: 32), child: Center(child: Text(ref.t('contacts.empty'), style: const TextStyle(color: JolayColors.textSecondary)))),
+          for (final x in l) ListTile(key: Key('contact-${x['id']}'), leading: const Icon(Icons.shield_outlined), title: Text(x['name'].toString()), subtitle: Text(x['phone'].toString()),
+              trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _remove(context, ref, x['id'].toString()))),
+        ]),
+      ),
+    );
+  }
+}

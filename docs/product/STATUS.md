@@ -24,8 +24,9 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
 | JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; |
 | Push notifications | 🧪 | localized texts + fan-out implemented; delivery is a DEV MOCK (`push_outbox`) until an FCM service account is configured; FCM adapter tested only against a local stub; apps register a MOCK per-install token (`MockPushTokenSource`, platform `mock`) after sign-in; a Firebase-backed `PushTokenSource` is still to be supplied |
-| SOS / complaints → incidents with staff notification, investigation history, admin handling | ✅ | apps also dial 112; no on-call schedule/SLA/escalation; emergency contacts ⛔ |
+| SOS / complaints → incidents with staff notification, investigation history, admin handling | ✅ | apps also dial 112; no on-call schedule/SLA/escalation |
 | Trip sharing (V14): tokenised public read-only link + viewer page, no phones/fares, live position only while active, revocable, expires after a grace period; "Share" button in the customer app copies the link | ✅ | no push/SMS to a chosen contact (needs a real SMS gateway) |
+| Emergency contacts (V15, up to 3 per customer): SOS during a ride texts each contact a live trip link; best effort, never blocks the SOS; repeated presses do not re-send. Customer app: Profile → Trusted contacts | ✅ | SMS goes through `SmsSender` = **mock** until a real gateway exists 🧪 |
 | Risk flags (7 rules, human review, no auto-suspension) | ✅ | thresholds are uncalibrated defaults |
 | FCM push, real SMS gateway | ⛔ | interfaces exist (`SmsSender`, `Notifier`) |
 

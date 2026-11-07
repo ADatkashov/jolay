@@ -5,11 +5,8 @@ import kz.jolay.common.Auth;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -22,12 +19,11 @@ import java.util.UUID;
 @RestController
 public class RideShareController {
     private static final String ACTIVE = "('DRIVER_ASSIGNED','DRIVER_ARRIVING','DRIVER_ARRIVED','IN_PROGRESS')";
-    private static final SecureRandom RANDOM = new SecureRandom();
     private final JdbcClient jdbc;
 
-    private final String publicBase;
+    private final RideShareService shares;
 
-    public RideShareController(JdbcClient jdbc, @org.springframework.beans.factory.annotation.Value("${jolay.payments.public-base-url}") String publicBase) { this.jdbc = jdbc; this.publicBase = publicBase; }
+    public RideShareController(JdbcClient jdbc, RideShareService shares) { this.jdbc = jdbc; this.shares = shares; }
 
     /** Minimal viewer page for the people the link was shared with; it reads the public JSON view below. */
     @GetMapping(value = "/api/v1/catalog/trip/{token}", produces = "text/html;charset=UTF-8")
@@ -38,21 +34,10 @@ public class RideShareController {
         }
     }
 
-    @PostMapping("/api/v1/rides/{id}/share") @PreAuthorize("hasRole('CUSTOMER')") @Transactional
+    @PostMapping("/api/v1/rides/{id}/share") @PreAuthorize("hasRole('CUSTOMER')")
     public Map<String, Object> share(@PathVariable UUID id) {
-        var ride = jdbc.sql("SELECT status FROM rides WHERE id=:r AND customer_id=:u FOR UPDATE").param("r", id).param("u", Auth.id()).query().listOfRows().stream().findFirst()
-                .orElseThrow(() -> ApiException.notFound("ride_not_found", "Ride not found"));
-        String status = (String) ride.get("status");
-        if (!status.matches("SEARCHING_DRIVER|DRIVER_ASSIGNED|DRIVER_ARRIVING|DRIVER_ARRIVED|IN_PROGRESS"))
-            throw ApiException.conflict("ride_not_active", "Only an active ride can be shared");
-        var existing = jdbc.sql("SELECT token FROM ride_shares WHERE ride_id=:r AND revoked_at IS NULL").param("r", id).query(String.class).optional();
-        String token = existing.orElseGet(() -> {
-            byte[] b = new byte[24]; RANDOM.nextBytes(b);
-            String t = Base64.getUrlEncoder().withoutPadding().encodeToString(b);
-            jdbc.sql("INSERT INTO ride_shares(token, ride_id, created_by) VALUES (:t,:r,:u)").param("t", t).param("r", id).param("u", Auth.id()).update();
-            return t;
-        });
-        return Map.of("token", token, "url", publicBase + "/api/v1/catalog/trip/" + token);
+        String token = shares.ensureToken(id, Auth.id());
+        return Map.of("token", token, "url", shares.urlFor(token));
     }
 
     @DeleteMapping("/api/v1/rides/{id}/share") @PreAuthorize("hasRole('CUSTOMER')") @ResponseStatus(HttpStatus.NO_CONTENT)

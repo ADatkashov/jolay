@@ -27,9 +27,27 @@ import java.util.UUID;
 public class IncidentController {
     private static final String ACTIVE = "('DRIVER_ASSIGNED','DRIVER_ARRIVING','DRIVER_ARRIVED','IN_PROGRESS')";
     private final JdbcClient jdbc;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(IncidentController.class);
     private final Notifier notifier;
+    private final kz.jolay.identity.SmsSender sms;
+    private final kz.jolay.rides.RideShareService shares;
 
-    public IncidentController(JdbcClient jdbc, Notifier notifier) { this.jdbc = jdbc; this.notifier = notifier; }
+    public IncidentController(JdbcClient jdbc, Notifier notifier, kz.jolay.identity.SmsSender sms, kz.jolay.rides.RideShareService shares) {
+        this.jdbc = jdbc; this.notifier = notifier; this.sms = sms; this.shares = shares;
+    }
+
+    /** Tells the customer's emergency contacts about an SOS, with a live trip link. Best effort: a failing SMS gateway must never block the SOS itself. */
+    private void alertContacts(UUID me, UUID rideId) {
+        try {
+            var contacts = jdbc.sql("SELECT name, phone FROM emergency_contacts WHERE user_id=:u").param("u", me).query().listOfRows();
+            if (contacts.isEmpty()) return;
+            String who = jdbc.sql("SELECT full_name FROM users WHERE id=:u").param("u", me).query(String.class).single().trim().split("\\s+")[0];
+            String link = null;
+            if (rideId != null) { try { link = shares.urlFor(shares.ensureToken(rideId, me)); } catch (ApiException ignored) { /* not the rider, or ride no longer active */ } }
+            String text = "JOLAY: " + who + " pressed the SOS button during a trip." + (link == null ? "" : " Live trip: " + link) + " If you cannot reach them, call 112.";
+            for (var c : contacts) { try { sms.send((String) c.get("phone"), text); } catch (RuntimeException e) { log.warn("SOS SMS to a contact failed: {}", e.toString()); } }
+        } catch (RuntimeException e) { log.warn("SOS contact alert failed: {}", e.toString()); }
+    }
 
     public record IncidentRequest(@NotBlank @Pattern(regexp = "SOS|COMPLAINT|ACCIDENT|OTHER") String type, UUID rideId,
                                   @Size(max = 1000) String description, GeoPoint point) {}
@@ -71,6 +89,7 @@ public class IncidentController {
 
         for (UUID staff : jdbc.sql("SELECT DISTINCT user_id FROM user_roles WHERE role IN ('SUPPORT_AGENT','OPERATIONS_ADMIN','SUPER_ADMIN')").query(UUID.class).list())
             notifier.notify(staff, "INCIDENT_CREATED", "incident-" + id + "-" + staff, Map.of("incidentId", id.toString(), "type", r.type(), "severity", severity));
+        if ("SOS".equals(r.type())) alertContacts(me, rideId);
         return Map.of("id", id, "status", "OPEN", "duplicate", false);
     }
 

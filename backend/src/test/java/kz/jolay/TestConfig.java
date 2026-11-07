@@ -13,10 +13,13 @@ import java.util.regex.Pattern;
 @TestConfiguration
 public class TestConfig {
     public static final Map<String, String> OTPS = new ConcurrentHashMap<>();
+    /** Every SMS sent during a test: {phone, text}. */
+    public static final java.util.List<String[]> SENT = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @Bean @Primary
     SmsSender capturingSms() {
         return (phone, text) -> {
+            SENT.add(new String[]{phone, text});
             Matcher m = Pattern.compile("(\\d{6})").matcher(text);
             if (m.find()) OTPS.put(phone, m.group(1));
         };

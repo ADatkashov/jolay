@@ -55,6 +55,7 @@ public abstract class IntegrationTestBase {
         jdbc.sql("INSERT INTO accounts(type) VALUES ('PLATFORM_REVENUE'),('EXTERNAL_CARD'),('EXTERNAL_CASH'),('PROMO'),('PAYOUT_CLEARING'),('EXTERNAL_BANK'),('ORDER_ESCROW')").update();
         jdbc.sql("UPDATE pricing_rules SET demand_multiplier=1.00, active=true").update();
         TestConfig.OTPS.clear();
+        TestConfig.SENT.clear();
     }
 
     // ---------- HTTP helpers ----------
