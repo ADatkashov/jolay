@@ -5,7 +5,7 @@ COPY gradle ./gradle
 COPY src ./src
 RUN gradle bootJar -x test --no-daemon
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd -r -u 10001 jolay && mkdir -p /data/documents && chown -R jolay /data
 USER jolay
 WORKDIR /app
