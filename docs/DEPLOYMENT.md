@@ -38,6 +38,13 @@ docker run -d -p 5000:5000 -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backen
 ```
 Keep the OSRM port private (only the backend needs it). Check a known pair before switching traffic: `curl "http://localhost:5000/route/v1/driving/76.9567,43.2335;76.9066,43.2025?overview=false"` must return `"code":"Ok"` with a plausible `distance` in metres. Refresh the extract periodically. Respect OpenStreetMap's attribution requirement (visible "© OpenStreetMap contributors" wherever OSM data is shown).
 
+## Address search and reverse geocoding (optional)
+Without configuration, address search only knows the 12 seeded Almaty landmarks and a pickup without an address is labelled with its coordinates. Setting `JOLAY_NOMINATIM_URL` (for example `http://nominatim:8080`) makes the backend use a [Nominatim](https://nominatim.org) server for `GET /api/v1/geo/places` and `GET /api/v1/geo/reverse` (and for the address stored on a ride when the app sends none). The UI language (`Accept-Language`: kk/ru/en) is forwarded; results are restricted to `country-codes` (default `kz`) and ranked towards the rider's position without excluding other places.
+
+**Run your own instance.** The public nominatim.openstreetmap.org service forbids heavy use and autocomplete (see its usage policy); this adapter sends an identifying `User-Agent` (`jolay.geocoding.user-agent`) but is not meant for the public server. Nominatim needs a large PostgreSQL import of the OSM extract; a commonly used container is `mediagis/nominatim` with `PBF_URL=https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf` (**not exercised in this repository's CI — verify on staging**, including that Kazakh/Russian address quality is acceptable for your users; if it is not, a commercial geocoder behind the `ExternalGeocoder` interface is the alternative).
+
+Behaviour: 1.5 s timeout (`jolay.geocoding.timeout-ms`); an empty answer, error, timeout or malformed body falls back to the seeded places, so the app keeps working; 3 consecutive failures skip Nominatim for 30 s; outcomes are counted in `jolay.geocoding.nominatim{outcome=ok|error|skipped}`. Keep the Nominatim port private. Show "© OpenStreetMap contributors" wherever OSM-derived data is displayed.
+
 ## Business switches to review before the pilot (all OFF / empty by default)
 Nothing below spends money or changes fares until the owner configures it in the admin console.
 

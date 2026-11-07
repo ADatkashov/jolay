@@ -29,6 +29,13 @@ springdoc:
   swagger-ui.path: /api/v1/swagger-ui
 
 jolay:
+  geocoding:
+    # Base URL of YOUR OWN Nominatim server (e.g. http://nominatim:8080). Empty = only the seeded places. Do not point this at the public OSM instance.
+    nominatim-url: ${JOLAY_NOMINATIM_URL:}
+    country-codes: kz
+    timeout-ms: 1500
+    failures-to-open: 3
+    open-seconds: 30
   routing:
     # Base URL of an OSRM server (e.g. http://osrm:5000). Empty = development estimate (great-circle x detour factor, flagged ESTIMATED).
     osrm-url: ${JOLAY_OSRM_URL:}
