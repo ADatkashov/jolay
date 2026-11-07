@@ -19,7 +19,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Payment webhooks: HMAC verification, dedupe, amount check | ✅ | real providers (Kaspi / FreedomPay) ⛔ — need merchant contracts |
 | Driver and partner payouts (hold → paid/rejected through the ledger; V9), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
 | Ratings, support tickets/chat (REST + notification event), notifications (dedupe), audit log | ✅ | |
-| WebSocket events with reconnect hints | 🟡 | event delivery after commit; no WS integration test |
+| WebSocket events with reconnect hints | ✅ | integration test: token-checked handshake, ping/pong, per-user delivery after commit, multiple devices |
 | Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
 | JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; |
