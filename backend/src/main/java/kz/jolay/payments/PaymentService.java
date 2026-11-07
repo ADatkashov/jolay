@@ -67,6 +67,10 @@ public class PaymentService {
                 if (commission.signum() > 0)
                     ledger.post("CASH_COMMISSION", "RIDE", rideId, "ride-cash-" + rideId, "Commission on cash ride",
                             List.of(new Leg(driverAcc, commission.negate()), new Leg(ledger.systemAccount("PLATFORM_REVENUE"), commission)));
+                BigDecimal promo = rideDiscount(rideId);       // the rider paid the driver (fare - promo) in cash: the platform covers the rest
+                if (promo.signum() > 0)
+                    ledger.post("BONUS", "PROMO_RIDE", rideId, "ride-promo-cash-" + rideId, "Promo discount on cash ride",
+                            List.of(new Leg(ledger.systemAccount("PROMO"), promo.negate()), new Leg(driverAcc, promo)));
                 markRidePaid(rideId);
             }
             case "WALLET" -> {
@@ -88,10 +92,17 @@ public class PaymentService {
         UUID cust = ledger.userAccount((UUID) r.get("customer_id"), "CUSTOMER_WALLET");
         UUID drv = ledger.userAccount((UUID) r.get("driver_id"), "DRIVER_WALLET");
         BigDecimal total = (BigDecimal) r.get("total"), commission = (BigDecimal) r.get("commission"), earnings = (BigDecimal) r.get("driver_earnings");
-        List<Leg> legs = new java.util.ArrayList<>(List.of(new Leg(cust, total.negate()), new Leg(drv, earnings)));
+        BigDecimal promo = rideDiscount(rideId);              // platform-funded discount: the rider pays total - promo, the driver still earns on the full fare
+        List<Leg> legs = new java.util.ArrayList<>(List.of(new Leg(cust, total.subtract(promo).negate()), new Leg(drv, earnings)));
         if (commission.signum() > 0) legs.add(new Leg(ledger.systemAccount("PLATFORM_REVENUE"), commission));
+        if (promo.signum() > 0) legs.add(new Leg(ledger.systemAccount("PROMO"), promo.negate()));
         ledger.post("RIDE_PAYMENT", "RIDE", rideId, "ride-pay-" + rideId, "Ride payment (wallet)", legs);
         markRidePaid(rideId);
+    }
+
+    /** Platform-funded promo discount booked on the ride's fare (zero for rides without a promo code). */
+    private BigDecimal rideDiscount(UUID rideId) {
+        return jdbc.sql("SELECT COALESCE((SELECT discount FROM ride_fares WHERE ride_id=:r),0)").param("r", rideId).query(BigDecimal.class).single();
     }
 
     private void markRidePaid(UUID rideId) {
@@ -110,7 +121,7 @@ public class PaymentService {
         if (!userId.equals(r.get("customer_id"))) throw ApiException.notFound("ride_not_found", "Ride not found");
         if (!"COMPLETED".equals(r.get("status"))) throw ApiException.conflict("ride_not_completed", "Ride is not completed");
         if ("PAID".equals(r.get("payment_status"))) throw ApiException.conflict("already_paid", "Ride is already paid");
-        BigDecimal total = (BigDecimal) r.get("total");
+        BigDecimal total = ((BigDecimal) r.get("total")).subtract(rideDiscount(rideId));          // what the rider actually pays
 
         if ("WALLET".equals(method)) {
             payRideFromWallet(rideId);
@@ -214,6 +225,8 @@ public class PaymentService {
             BigDecimal commission = (BigDecimal) f.get("commission");
             List<Leg> legs = new java.util.ArrayList<>(List.of(new Leg(external, amount.negate()), new Leg(drv, (BigDecimal) f.get("driver_earnings"))));
             if (commission.signum() > 0) legs.add(new Leg(ledger.systemAccount("PLATFORM_REVENUE"), commission));
+            BigDecimal promo = rideDiscount(rideId);
+            if (promo.signum() > 0) legs.add(new Leg(ledger.systemAccount("PROMO"), promo.negate()));
             ledger.post("RIDE_PAYMENT", "PAYMENT", id, "pay-" + id, "Ride payment (card)", legs);
             markRidePaid(rideId);
         }
@@ -248,6 +261,8 @@ public class PaymentService {
             legs = new java.util.ArrayList<>(List.of(new Leg(external, amount), new Leg(drv, ((BigDecimal) f.get("driver_earnings")).negate())));
             BigDecimal commission = (BigDecimal) f.get("commission");
             if (commission.signum() > 0) legs.add(new Leg(ledger.systemAccount("PLATFORM_REVENUE"), commission.negate()));
+            BigDecimal promo = rideDiscount((UUID) pay.get("ride_id"));
+            if (promo.signum() > 0) legs.add(new Leg(ledger.systemAccount("PROMO"), promo));
         }
         provider((String) pay.get("provider")).refund((String) pay.get("provider_ref"), amount);
         UUID txId = ledger.post("REFUND", "PAYMENT", paymentId, "refund-" + paymentId, "Refund: " + reason, legs);

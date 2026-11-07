@@ -24,6 +24,8 @@ public class RideStateMachine {
         if (q.update() != 1) throw ApiException.conflict("invalid_transition", "Ride state changed concurrently");
         jdbc.sql("INSERT INTO ride_status_history(ride_id,from_status,to_status,actor) VALUES (:r,:f,:t,:a)")
                 .param("r", rideId).param("f", from.name()).param("t", to.name()).param("a", actor).update();
+        if (to.isTerminal() && to != RideStatus.COMPLETED)      // the rider gets the promo use back
+            jdbc.sql("UPDATE promo_redemptions SET status='RELEASED' WHERE ride_id=:r AND status='RESERVED'").param("r", rideId).update();
     }
 
     public RideStatus current(UUID rideId, boolean lock) {

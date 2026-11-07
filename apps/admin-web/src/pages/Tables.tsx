@@ -157,6 +157,50 @@ export function PeakWindows({ can }: { can: boolean }) {
       <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save} disabled={!form.label.trim() || form.days.length === 0}>Save (audited)</button><button className="btn ghost" onClick={() => setForm(null)}>Cancel</button></div></div>}</>;
 }
 
+/** Promo codes: the platform pays the discount (booked from the PROMO account); drivers still earn on the full fare. */
+export function Promos({ roles }: { roles: string[] }) {
+  const { data, error, loading, reload } = useApi<Row[]>("/admin/promos");
+  const [form, setForm] = useState<Row | null>(null); const [msg, setMsg] = useState("");
+  const can = canEditPricing(roles);
+  const blank = () => ({ id: "", code: "", description: "", kind: "PERCENT", value: "10", maxDiscount: "", minFare: "0", startsAt: "", endsAt: "", maxRedemptions: "", perUserLimit: "1", firstRideOnly: false, active: true });
+  const edit = (p: Row) => setForm({ id: p.id, code: p.code, description: p.description ?? "", kind: p.kind, value: String(p.value), maxDiscount: p.max_discount == null ? "" : String(p.max_discount), minFare: String(p.min_fare),
+    startsAt: p.starts_at ?? "", endsAt: p.ends_at ?? "", maxRedemptions: p.max_redemptions == null ? "" : String(p.max_redemptions), perUserLimit: String(p.per_user_limit), firstRideOnly: !!p.first_ride_only, active: !!p.active });
+  const save = () => {
+    if (!form) return;
+    const num = (v: string) => (v === "" ? null : Number(v));
+    const body = { code: form.code.trim(), description: form.description || null, kind: form.kind, value: Number(form.value), maxDiscount: num(form.maxDiscount), minFare: Number(form.minFare || 0),
+      startsAt: form.startsAt || null, endsAt: form.endsAt || null, maxRedemptions: num(form.maxRedemptions), perUserLimit: Number(form.perUserLimit || 1), firstRideOnly: !!form.firstRideOnly, active: !!form.active };
+    void act(() => form.id ? api("PUT", `/admin/promos/${form.id}`, body) : api("POST", "/admin/promos", body), () => { setForm(null); reload(); }, setMsg);
+  };
+  const f = (k: string, v: any) => setForm({ ...form!, [k]: v });
+  return <><h1>Promo codes</h1>
+    <p className="muted">The platform pays the discount (it is booked from the PROMO account in the ledger); drivers keep earning on the full fare. A code is switched off with Active, never deleted.</p>
+    <Status error={error} loading={loading} />{msg && <div className="err" role="alert">{msg}</div>}
+    <table><thead><tr><th>Code</th><th>Discount</th><th>Min fare</th><th>Valid</th><th>Limits</th><th>Used</th><th>Given</th><th>Active</th><th /></tr></thead><tbody>
+      {data?.length === 0 && <tr><td colSpan={9} className="muted">No promo codes yet.</td></tr>}
+      {data?.map((p) => <tr key={p.id}><td><b>{p.code}</b><div className="muted">{p.description}</div></td>
+        <td>{p.kind === "PERCENT" ? `${Number(p.value)}%${p.max_discount ? ` (max ${kzt(p.max_discount)})` : ""}` : kzt(p.value)}</td><td>{kzt(p.min_fare)}</td>
+        <td>{p.starts_at ? when(p.starts_at) : "now"} → {p.ends_at ? when(p.ends_at) : "no end"}</td>
+        <td>{p.max_redemptions ? `${p.max_redemptions} total` : "unlimited"}, {p.per_user_limit}/rider{p.first_ride_only ? ", first ride only" : ""}</td>
+        <td>{p.applied}{Number(p.reserved) > 0 ? ` (+${p.reserved} open)` : ""}</td><td>{kzt(p.total_discount)}</td><td>{pill(p.active ? "ACTIVE" : "OFF")}</td>
+        <td>{can && <button className="btn ghost" onClick={() => edit(p)}>Edit</button>}</td></tr>)}</tbody></table>
+    {can && !form && <button className="btn" style={{ marginTop: 12 }} onClick={() => setForm(blank())}>New promo code</button>}
+    {form && <div className="card" style={{ marginTop: 16, maxWidth: 620 }}><h3>{form.id ? `Edit ${form.code}` : "New promo code"}</h3><div className="grid2">
+      <label>Code<input value={form.code} disabled={!!form.id} onChange={(e) => f("code", e.target.value.toUpperCase())} /></label>
+      <label>Description<input value={form.description} onChange={(e) => f("description", e.target.value)} /></label>
+      <label>Type<select value={form.kind} onChange={(e) => f("kind", e.target.value)}><option value="PERCENT">Percent of fare</option><option value="FIXED">Fixed amount (KZT)</option></select></label>
+      <label>Value<input type="number" step="any" value={form.value} onChange={(e) => f("value", e.target.value)} /></label>
+      <label>Max discount (KZT, optional)<input type="number" step="any" value={form.maxDiscount} onChange={(e) => f("maxDiscount", e.target.value)} /></label>
+      <label>Min fare (KZT)<input type="number" step="any" value={form.minFare} onChange={(e) => f("minFare", e.target.value)} /></label>
+      <label>Starts (ISO, optional)<input placeholder="2026-12-01T00:00:00+05:00" value={form.startsAt} onChange={(e) => f("startsAt", e.target.value)} /></label>
+      <label>Ends (ISO, optional)<input placeholder="2026-12-31T23:59:00+05:00" value={form.endsAt} onChange={(e) => f("endsAt", e.target.value)} /></label>
+      <label>Total uses (empty = unlimited)<input type="number" value={form.maxRedemptions} onChange={(e) => f("maxRedemptions", e.target.value)} /></label>
+      <label>Uses per rider<input type="number" value={form.perUserLimit} onChange={(e) => f("perUserLimit", e.target.value)} /></label></div>
+      <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!form.firstRideOnly} onChange={(e) => f("firstRideOnly", e.target.checked)} /> First ride only</label>
+      <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!form.active} onChange={(e) => f("active", e.target.checked)} /> Active</label>
+      <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save} disabled={!form.code.trim() || !Number(form.value)}>Save (audited)</button><button className="btn ghost" onClick={() => setForm(null)}>Cancel</button></div></div>}</>;
+}
+
 export function Support() {
   const { data, error, loading, reload } = useApi<Row[]>("/admin/support/tickets");
   const [open, setOpen] = useState<Row | null>(null); const [msgs, setMsgs] = useState<Row[]>([]); const [text, setText] = useState(""); const [msg, setMsg] = useState("");

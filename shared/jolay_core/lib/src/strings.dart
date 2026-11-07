@@ -8,7 +8,7 @@ const supportedLocales = [Locale('kk'), Locale('ru'), Locale('en')];
 /// Backend error codes map to `err.<code>`.
 const Map<String, Map<String, String>> _s = {
   'kk': {
-    'delivery.collectCash': 'Клиенттен қолма-қол алыңыз',
+    'driver.collectPromo': 'Қолма-қол алыңыз (промокод жеңілдігі платформа есебінен)', 'delivery.collectCash': 'Клиенттен қолма-қол алыңыз',
     'shop.payWith': 'Төлем тәсілі',
     'shop.payWallet': 'Әмиян',
     'shop.payCash': 'Жеткізгенде қолма-қол',
@@ -157,7 +157,7 @@ const Map<String, Map<String, String>> _s = {
     'err.otp_invalid': 'Код қате немесе мерзімі өткен', 'err.otp_attempts_exceeded': 'Тым көп әрекет. Жаңа код сұраңыз', 'err.otp_rate_limited': 'Тым көп код сұралды. Кейінірек көріңіз', 'err.otp_too_soon': 'Жаңа кодты сәл кейін сұраңыз',
     'err.login_locked': 'Тым көп қате әрекет. Кейінірек көріңіз', 'err.phone_not_verified': 'Телефон расталмаған', 'err.account_suspended': 'Аккаунт тоқтатылған',
     'err.active_ride_exists': 'Сізде белсенді сапар бар', 'err.insufficient_funds': 'Әмиянда қаражат жеткіліксіз', 'err.pickup_out_of_zone': 'Алып кету орны қызмет аймағынан тыс', 'err.dropoff_out_of_zone': 'Межелі жер қызмет аймағынан тыс',
-    'err.trip_too_short': 'Сапар тым қысқа', 'err.network': 'Желі қатесі', 'err.unauthorized': 'Қайта кіріңіз', 'err.cannot_cancel': 'Қазір бас тарту мүмкін емес', 'err.driver_not_approved': 'Жүргізуші аккаунты расталмаған',
+    'err.promo_not_found': 'Мұндай промокод жоқ', 'err.promo_inactive': 'Промокод қосулы емес', 'err.promo_expired': 'Промокодтың мерзімі өтті немесе әлі басталмады', 'err.promo_exhausted': 'Промокод толық пайдаланылды', 'err.promo_already_used': 'Бұл промокодты бұрын пайдаландыңыз', 'err.promo_first_ride_only': 'Промокод тек бірінші сапарға арналған', 'err.promo_min_fare': 'Сапар құны промокод үшін тым төмен', 'promo.have': 'Промокод', 'promo.apply': 'Қолдану', 'promo.applied': 'Промокод қолданылды', 'promo.discount': 'Жеңілдік', 'promo.pay': 'Төленетін сома', 'err.trip_too_short': 'Сапар тым қысқа', 'err.network': 'Желі қатесі', 'err.unauthorized': 'Қайта кіріңіз', 'err.cannot_cancel': 'Қазір бас тарту мүмкін емес', 'err.driver_not_approved': 'Жүргізуші аккаунты расталмаған',
     'err.not_at_pickup': 'Алып кету нүктесіне жеткен жоқсыз', 'err.offer_expired': 'Ұсыныс мерзімі өтті', 'err.offer_closed': 'Ұсыныс жабылды', 'err.driver_busy': 'Алдымен ағымдағы тапсырысты аяқтаңыз', 'err.plate_taken': 'Бұл нөмір тіркелген',
     'err.internal_error': 'Сервер қатесі', 'err.validation_failed': 'Деректерді тексеріңіз',
     'driver.online': 'Желіде', 'driver.offline': 'Желіден тыс', 'driver.goOnline': 'Желіге шығу', 'driver.goOffline': 'Желіден шығу', 'driver.pending': 'Аккаунт тексерілуде', 'driver.pendingBody': 'Құжаттарыңызды әкімші тексереді. Бекітілгеннен кейін тапсырыс ала аласыз.',
@@ -168,7 +168,7 @@ const Map<String, Map<String, String>> _s = {
     'driver.docs': 'Құжаттар', 'driver.safety': 'Қауіпсіздік және қолдау', 'driver.passenger': 'Жолаушы',
   },
   'ru': {
-    'delivery.collectCash': 'Получите наличными от клиента',
+    'driver.collectPromo': 'Получите наличными (скидку по промокоду оплачивает платформа)', 'delivery.collectCash': 'Получите наличными от клиента',
     'shop.payWith': 'Способ оплаты',
     'shop.payWallet': 'Кошелёк',
     'shop.payCash': 'Наличными при получении',
@@ -317,7 +317,7 @@ const Map<String, Map<String, String>> _s = {
     'err.otp_invalid': 'Неверный или просроченный код', 'err.otp_attempts_exceeded': 'Слишком много попыток. Запросите новый код', 'err.otp_rate_limited': 'Слишком много запросов кода. Попробуйте позже', 'err.otp_too_soon': 'Подождите перед повторным запросом',
     'err.login_locked': 'Слишком много неудачных попыток. Попробуйте позже', 'err.phone_not_verified': 'Телефон не подтверждён', 'err.account_suspended': 'Аккаунт заблокирован',
     'err.active_ride_exists': 'У вас уже есть активная поездка', 'err.insufficient_funds': 'Недостаточно средств в кошельке', 'err.pickup_out_of_zone': 'Точка посадки вне зоны обслуживания', 'err.dropoff_out_of_zone': 'Пункт назначения вне зоны обслуживания',
-    'err.trip_too_short': 'Слишком короткая поездка', 'err.network': 'Ошибка сети', 'err.unauthorized': 'Войдите снова', 'err.cannot_cancel': 'Сейчас отменить нельзя', 'err.driver_not_approved': 'Аккаунт водителя не подтверждён',
+    'err.promo_not_found': 'Такого промокода нет', 'err.promo_inactive': 'Промокод не активен', 'err.promo_expired': 'Срок промокода истёк или ещё не начался', 'err.promo_exhausted': 'Промокод уже использован полностью', 'err.promo_already_used': 'Вы уже использовали этот промокод', 'err.promo_first_ride_only': 'Промокод только для первой поездки', 'err.promo_min_fare': 'Стоимость поездки меньше минимальной для промокода', 'promo.have': 'Промокод', 'promo.apply': 'Применить', 'promo.applied': 'Промокод применён', 'promo.discount': 'Скидка', 'promo.pay': 'К оплате', 'err.trip_too_short': 'Слишком короткая поездка', 'err.network': 'Ошибка сети', 'err.unauthorized': 'Войдите снова', 'err.cannot_cancel': 'Сейчас отменить нельзя', 'err.driver_not_approved': 'Аккаунт водителя не подтверждён',
     'err.not_at_pickup': 'Вы ещё не на точке посадки', 'err.offer_expired': 'Время предложения истекло', 'err.offer_closed': 'Предложение закрыто', 'err.driver_busy': 'Сначала завершите текущий заказ', 'err.plate_taken': 'Этот номер уже зарегистрирован',
     'err.internal_error': 'Ошибка сервера', 'err.validation_failed': 'Проверьте введённые данные',
     'driver.online': 'На линии', 'driver.offline': 'Не на линии', 'driver.goOnline': 'Выйти на линию', 'driver.goOffline': 'Уйти с линии', 'driver.pending': 'Аккаунт на проверке', 'driver.pendingBody': 'Администратор проверяет ваши документы. После подтверждения вы сможете принимать заказы.',
@@ -328,7 +328,7 @@ const Map<String, Map<String, String>> _s = {
     'driver.docs': 'Документы', 'driver.safety': 'Безопасность и поддержка', 'driver.passenger': 'Пассажир',
   },
   'en': {
-    'delivery.collectCash': 'Collect cash from the customer',
+    'driver.collectPromo': 'Collect in cash (the promo discount is paid by the platform)', 'delivery.collectCash': 'Collect cash from the customer',
     'shop.payWith': 'Payment',
     'shop.payWallet': 'Wallet',
     'shop.payCash': 'Cash on delivery',
@@ -477,7 +477,7 @@ const Map<String, Map<String, String>> _s = {
     'err.otp_invalid': 'Invalid or expired code', 'err.otp_attempts_exceeded': 'Too many attempts. Request a new code', 'err.otp_rate_limited': 'Too many codes requested. Try later', 'err.otp_too_soon': 'Please wait before requesting another code',
     'err.login_locked': 'Too many failed attempts. Try again later', 'err.phone_not_verified': 'Phone number is not verified', 'err.account_suspended': 'Account is suspended',
     'err.active_ride_exists': 'You already have an active ride', 'err.insufficient_funds': 'Insufficient wallet balance', 'err.pickup_out_of_zone': 'Pickup is outside the service area', 'err.dropoff_out_of_zone': 'Destination is outside the service area',
-    'err.trip_too_short': 'Trip is too short', 'err.network': 'Network error', 'err.unauthorized': 'Please log in again', 'err.cannot_cancel': 'Cannot cancel right now', 'err.driver_not_approved': 'Driver account is not approved',
+    'err.promo_not_found': 'This promo code does not exist', 'err.promo_inactive': 'This promo code is not active', 'err.promo_expired': 'This promo code has expired or has not started yet', 'err.promo_exhausted': 'This promo code has been fully used', 'err.promo_already_used': 'You have already used this promo code', 'err.promo_first_ride_only': 'This promo code is only for a first ride', 'err.promo_min_fare': 'The fare is below the minimum for this promo code', 'promo.have': 'Promo code', 'promo.apply': 'Apply', 'promo.applied': 'Promo code applied', 'promo.discount': 'Discount', 'promo.pay': 'To pay', 'err.trip_too_short': 'Trip is too short', 'err.network': 'Network error', 'err.unauthorized': 'Please log in again', 'err.cannot_cancel': 'Cannot cancel right now', 'err.driver_not_approved': 'Driver account is not approved',
     'err.not_at_pickup': "You're not at the pickup point yet", 'err.offer_expired': 'The offer has expired', 'err.offer_closed': 'The offer is closed', 'err.driver_busy': 'Finish your current order first', 'err.plate_taken': 'This plate is already registered',
     'err.internal_error': 'Server error', 'err.validation_failed': 'Please check your input',
     'driver.online': 'Online', 'driver.offline': 'Offline', 'driver.goOnline': 'Go online', 'driver.goOffline': 'Go offline', 'driver.pending': 'Account under review', 'driver.pendingBody': 'An administrator is reviewing your documents. You can take orders once approved.',

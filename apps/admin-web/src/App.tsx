@@ -5,7 +5,7 @@ import Overview from "./pages/Overview";
 import { Deliveries, Partners, StoreOrders, Incidents, Payouts, RiskFlags, Legal } from "./pages/Ops";
 import Security from "./pages/Security";
 import { useApi } from "./pages/hooks";
-import { Live, Rides, Drivers, Customers, Payments, Pricing, Support, Settings, Audit } from "./pages/Tables";
+import { Live, Rides, Drivers, Customers, Payments, Pricing, Promos, Support, Settings, Audit } from "./pages/Tables";
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(loadSession());
@@ -46,7 +46,7 @@ export function Shell({ session, onLogout }: { session: Session; onLogout: () =>
   const mustEnrol = mfa.data?.enrolmentRequired === true;
   const P: Record<string, JSX.Element> = {
     overview: <Overview />, live: <Live />, rides: <Rides />, drivers: <Drivers roles={roles} />, customers: <Customers roles={roles} />,
-    payments: <Payments />, deliveries: <Deliveries />, partners: <Partners roles={roles} />, storeorders: <StoreOrders />, incidents: <Incidents />, payouts: <Payouts />, risk: <RiskFlags />, legal: <Legal />, pricing: <Pricing roles={roles} />, security: <Security />, support: <Support />, settings: <Settings />, audit: <Audit />,
+    payments: <Payments />, deliveries: <Deliveries />, partners: <Partners roles={roles} />, storeorders: <StoreOrders />, incidents: <Incidents />, payouts: <Payouts />, risk: <RiskFlags />, legal: <Legal />, pricing: <Pricing roles={roles} />, promos: <Promos roles={roles} />, security: <Security />, support: <Support />, settings: <Settings />, audit: <Audit />,
   };
   return (
     <div className="app">
