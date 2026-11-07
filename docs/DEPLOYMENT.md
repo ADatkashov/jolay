@@ -13,7 +13,7 @@ Compose is a **development** stack (dev OTP logging, default ports). For product
 
 ## Management port (prod)
 In the `prod` profile Actuator (`/actuator/health/*`, `/actuator/prometheus`) is served on `JOLAY_MGMT_PORT` (default **8081**) and is not reachable on 8080. Do not expose 8081 through the ingress; probes and Prometheus use it. Dev/compose runs without the profile (health on 8080, metrics need a SUPER_ADMIN token).
-Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, DB credentials, `JOLAY_CORS_ORIGINS`, a real payment provider (or `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` for an internal demo only).
+Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, `JOLAY_PUBLIC_URL` (public https:// address of the API; startup is refused otherwise), DB credentials, `JOLAY_CORS_ORIGINS`, a real payment provider (or `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` for an internal demo only).
 
 ## Kubernetes
 `infrastructure/kubernetes/backend.yaml` (Deployment, Service, probes, non-root, resource limits). Secrets are created with `kubectl create secret generic jolay-secrets ...` (see file header).
