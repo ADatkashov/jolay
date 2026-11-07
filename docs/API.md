@@ -17,6 +17,7 @@ Idempotency: send `Idempotency-Key` on `POST /rides`, `POST /wallet/top-ups`, `P
 | Safety | `POST /incidents` (SOS/COMPLAINT/ACCIDENT/OTHER) · `GET /incidents` |
 | Payouts (driver) | `POST/GET /drivers/payouts` |
 | Legal (public) | `GET /catalog/legal/{TERMS|PRIVACY|ABOUT}?lang=` |
+| Trip sharing | `POST /rides/{id}/share` · `DELETE /rides/{id}/share` (customer) · public `GET /catalog/ride-share/{token}` (JSON) · `GET /catalog/trip/{token}` (HTML viewer) |
 | Express (customer) | `POST /deliveries/estimate` · `POST /deliveries` · `GET /deliveries/history` · `GET /deliveries/{id}` · `POST /deliveries/{id}/cancel` · `POST /deliveries/{id}/rating` · public `GET /catalog/track/{trackingNumber}` |
 | Express (courier) | `PUT /drivers/delivery` · `GET /drivers/delivery-offers` · `POST /drivers/delivery-offers/{id}/accept|decline` · `GET /drivers/deliveries/active|history` · `POST /drivers/deliveries/{id}/picked-up|deliver|cancel` |
 | Notifications | `GET /notifications` · `POST /notifications/{id}/read` · `POST /notifications/devices` |

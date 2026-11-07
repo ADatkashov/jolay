@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>JOLAY trip</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;background:#f4f6f8;color:#111}main{max-width:480px;margin:0 auto;padding:20px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 4px #0001}h1{font-size:20px;margin:0}small{color:#667}
+.st{display:inline-block;padding:4px 10px;border-radius:99px;background:#e6f4ea;color:#14532d;font-weight:600}a{color:#0a58ca}</style></head>
+<body><main><h1>JOLAY — shared trip</h1><div id="out" class="card">Loading…</div></main>
+<script>
+const token = location.pathname.split('/').pop();
+const T = {DRIVER_ASSIGNED:'Driver assigned',DRIVER_ARRIVING:'Driver is on the way',DRIVER_ARRIVED:'Driver has arrived',IN_PROGRESS:'Trip in progress',COMPLETED:'Trip completed',CANCELLED:'Trip cancelled',SEARCHING_DRIVER:'Looking for a driver',EXPIRED:'Trip ended',FAILED:'Trip ended'};
+function row(label, value){const d=document.createElement('div');d.style.marginTop='8px';const s=document.createElement('small');s.textContent=label;d.append(s,document.createElement('br'),document.createTextNode(value));return d;}
+async function load(){
+  const out=document.getElementById('out');
+  try{
+    const r=await fetch('/api/v1/catalog/ride-share/'+encodeURIComponent(token));
+    if(!r.ok){out.textContent='This trip link is no longer available.';clearInterval(timer);return;}
+    const t=await r.json();
+    out.replaceChildren();
+    const st=document.createElement('span');st.className='st';st.textContent=T[t.status]||t.status;out.append(st);
+    out.append(row('Shared by',t.sharedBy||''),row('From',t.pickupAddress),row('To',t.dropoffAddress));
+    if(t.driverName)out.append(row('Driver',t.driverName+' · '+t.vehicle.color+' '+t.vehicle.brand+' '+t.vehicle.model+' · '+t.vehicle.plate));
+    if(t.driverLocation){
+      const a=document.createElement('a');const {lat,lng}=t.driverLocation;
+      a.href='https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lng+'#map=16/'+lat+'/'+lng;a.target='_blank';a.rel='noopener';a.textContent='Open driver position on the map';
+      const d=document.createElement('div');d.style.marginTop='12px';d.append(a);out.append(d);
+    }
+    if(!t.active){clearInterval(timer);}
+  }catch(e){out.textContent='Cannot load the trip right now. Retrying…';}
+}
+const timer=setInterval(load,10000);load();
+</script></body></html>

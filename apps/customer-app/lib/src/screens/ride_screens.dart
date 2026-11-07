@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jolay_core/jolay_core.dart';
@@ -309,6 +310,9 @@ class _Active extends ConsumerWidget {
         ], route: [pickup, drop])),
         Positioned(top: 0, left: 0, right: 0, child: SafeArea(child: Padding(padding: const EdgeInsets.all(12), child: Row(children: [
           CircleAvatar(backgroundColor: Colors.white, child: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/home'))), const Spacer(),
+          FilledButton.icon(key: const Key('share-trip'), onPressed: () => _share(context, ref), icon: const Icon(Icons.share), label: Text(ref.t('ride.share')),
+              style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: JolayColors.midnight, minimumSize: const Size(90, 40))),
+          const SizedBox(width: 8),
           FilledButton.icon(key: const Key('sos'), onPressed: () => _sos(context, ref), icon: const Icon(Icons.warning_amber_rounded), label: Text(ref.t('ride.sos')),
               style: FilledButton.styleFrom(backgroundColor: JolayColors.error, foregroundColor: Colors.white, minimumSize: const Size(90, 40))),
         ])))),
@@ -338,6 +342,15 @@ class _Active extends ConsumerWidget {
         )),
       ]),
     );
+  }
+
+  /// Trip sharing: creates (or reuses) a read-only public link for this ride and copies it so it can be pasted into any messenger.
+  Future<void> _share(BuildContext context, WidgetRef ref) async {
+    try {
+      final r = await ref.read(apiProvider).post('/rides/${ride.id}/share') as Map;
+      await Clipboard.setData(ClipboardData(text: r['url'] as String));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.t('ride.shareCopied'))));
+    } catch (e) { if (context.mounted) showError(context, ref, e); }
   }
 
   /// SOS: there is no operator integration yet, so the honest behaviour is to dial the national emergency number (112).
