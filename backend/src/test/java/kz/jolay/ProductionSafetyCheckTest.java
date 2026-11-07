@@ -11,8 +11,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProductionSafetyCheckTest {
     private static final String SECRET = "a-real-secret-a-real-secret-a-real-secret";
 
-    private void verify(String secret, String provider, boolean logCode, boolean allowSandbox, String publicUrl) throws Exception {
-        ProductionSafetyCheck c = new ProductionSafetyCheck(secret, provider, logCode, allowSandbox, publicUrl);
+    private void verify(String secret, String provider, boolean logCode, boolean allowSandbox, String publicUrl) throws Exception { verify(secret, provider, logCode, allowSandbox, publicUrl, "https://admin.jolay.kz"); }
+
+    private void verify(String secret, String provider, boolean logCode, boolean allowSandbox, String publicUrl, String cors) throws Exception {
+        ProductionSafetyCheck c = new ProductionSafetyCheck(secret, provider, logCode, allowSandbox, publicUrl, cors);
         Method m = ProductionSafetyCheck.class.getDeclaredMethod("verify");
         m.setAccessible(true);
         try { m.invoke(c); } catch (java.lang.reflect.InvocationTargetException e) { throw (Exception) e.getCause(); }
@@ -36,5 +38,15 @@ class ProductionSafetyCheckTest {
         assertTrue(e.getMessage().contains("JOLAY_PUBLIC_URL"));
         assertThrows(IllegalStateException.class, () -> verify(SECRET, "kaspi", false, false, "http://api.jolay.kz"));
         assertDoesNotThrow(() -> verify(SECRET, "sandbox", false, true, "http://localhost:8080"));      // closed internal demo only
+    }
+
+    @Test
+    void corsOriginsMustBeExplicitInProduction() {
+        for (String bad : new String[]{"", "*", "https://admin.jolay.kz,*", "http://localhost:5173", "http://127.0.0.1:3000"}) {
+            IllegalStateException e = assertThrows(IllegalStateException.class, () -> verify(SECRET, "kaspi", false, false, "https://api.jolay.kz", bad), "cors=" + bad);
+            assertTrue(e.getMessage().contains("JOLAY_CORS_ORIGINS"));
+        }
+        assertDoesNotThrow(() -> verify(SECRET, "kaspi", false, false, "https://api.jolay.kz", "https://admin.jolay.kz,https://partners.jolay.kz"));
+        assertDoesNotThrow(() -> verify(SECRET, "sandbox", false, true, "http://localhost:8080", "*"));        // closed internal demo only
     }
 }
