@@ -122,7 +122,7 @@ export function Pricing({ roles }: { roles: string[] }) {
       {fields.map(([k, label]) => <label key={k}>{label}<input type="number" step="any" value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} /></label>)}</div>
       <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} /> Active</label>
       <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save}>Save (audited)</button><button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button></div></div>}
-    <PeakWindows can={can} /></>;
+    <PeakWindows can={can} /><TariffZones can={can} /></>;
 }
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -155,6 +155,37 @@ export function PeakWindows({ can }: { can: boolean }) {
         <label>Multiplier (1–3)<input type="number" step="0.05" min="1" max="3" value={form.multiplier} onChange={(e) => setForm({ ...form, multiplier: e.target.value })} /></label></div>
       <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
       <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save} disabled={!form.label.trim() || form.days.length === 0}>Save (audited)</button><button className="btn ghost" onClick={() => setForm(null)}>Cancel</button></div></div>}</>;
+}
+
+/** Flat surcharges for trips that start and/or end inside a circle (airport, distant suburb). Shown in the fee line of the fare and locked per ride at request time. */
+export function TariffZones({ can }: { can: boolean }) {
+  const { data, error, loading, reload } = useApi<Row[]>("/admin/pricing/zones");
+  const [form, setForm] = useState<Row | null>(null); const [msg, setMsg] = useState("");
+  const blank = () => ({ id: "", city: "ALA", name: "", lat: "43.2220", lng: "76.8512", radiusM: "1500", surcharge: "500", appliesTo: "EITHER", active: true });
+  const f = (k: string, v: any) => setForm({ ...form!, [k]: v });
+  const save = () => {
+    if (!form) return;
+    const body = { city: form.city, name: form.name.trim(), lat: Number(form.lat), lng: Number(form.lng), radiusM: Number(form.radiusM), surcharge: Number(form.surcharge), appliesTo: form.appliesTo, active: !!form.active };
+    void act(() => form.id ? api("PUT", `/admin/pricing/zones/${form.id}`, body) : api("POST", "/admin/pricing/zones", body), () => { setForm(null); reload(); }, setMsg);
+  };
+  const remove = (z: Row) => { if (window.confirm(`Delete tariff zone "${z.name}"?`)) void act(() => api("DELETE", `/admin/pricing/zones/${z.id}`), reload, setMsg); };
+  return <><h2 style={{ marginTop: 32 }}>Tariff zones (surcharges)</h2>
+    <p className="muted">A flat fee added to the fare when the pickup and/or the destination is inside the circle (e.g. the airport). It appears in the fee line, commission applies, and the amount quoted at booking is the amount charged.</p>
+    <Status error={error} loading={loading} />{msg && <div className="err" role="alert">{msg}</div>}
+    <table><thead><tr><th>City</th><th>Zone</th><th>Centre</th><th>Radius</th><th>Applies to</th><th>Surcharge</th><th>Active</th><th /></tr></thead><tbody>
+      {data?.length === 0 && <tr><td colSpan={8} className="muted">No tariff zones defined — no surcharges are applied.</td></tr>}
+      {data?.map((z) => <tr key={z.id}><td>{z.city}</td><td>{z.name}</td><td>{Number(z.lat).toFixed(4)}, {Number(z.lng).toFixed(4)}</td><td>{z.radius_m} m</td><td>{z.applies_to}</td><td>{kzt(z.surcharge)}</td><td>{pill(z.active ? "ACTIVE" : "OFF")}</td>
+        <td>{can && <><button className="btn ghost" onClick={() => setForm({ id: z.id, city: z.city, name: z.name, lat: String(z.lat), lng: String(z.lng), radiusM: String(z.radius_m), surcharge: String(z.surcharge), appliesTo: z.applies_to, active: !!z.active })}>Edit</button> <button className="btn ghost" onClick={() => remove(z)}>Delete</button></>}</td></tr>)}</tbody></table>
+    {can && !form && <button className="btn" style={{ marginTop: 12 }} onClick={() => setForm(blank())}>Add tariff zone</button>}
+    {form && <div className="card" style={{ marginTop: 16, maxWidth: 560 }}><h3>{form.id ? "Edit zone" : "New zone"}</h3><div className="grid2">
+      <label>Name<input value={form.name} onChange={(e) => f("name", e.target.value)} /></label>
+      <label>Applies to<select value={form.appliesTo} onChange={(e) => f("appliesTo", e.target.value)}><option value="EITHER">Pickup or destination</option><option value="PICKUP">Pickup only</option><option value="DROPOFF">Destination only</option></select></label>
+      <label>Centre latitude<input type="number" step="any" value={form.lat} onChange={(e) => f("lat", e.target.value)} /></label>
+      <label>Centre longitude<input type="number" step="any" value={form.lng} onChange={(e) => f("lng", e.target.value)} /></label>
+      <label>Radius (m, 100–50000)<input type="number" value={form.radiusM} onChange={(e) => f("radiusM", e.target.value)} /></label>
+      <label>Surcharge (KZT)<input type="number" step="any" value={form.surcharge} onChange={(e) => f("surcharge", e.target.value)} /></label></div>
+      <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!form.active} onChange={(e) => f("active", e.target.checked)} /> Active</label>
+      <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save} disabled={!form.name.trim() || !Number(form.surcharge)}>Save (audited)</button><button className="btn ghost" onClick={() => setForm(null)}>Cancel</button></div></div>}</>;
 }
 
 /** Promo codes: the platform pays the discount (booked from the PROMO account); drivers still earn on the full fare. */

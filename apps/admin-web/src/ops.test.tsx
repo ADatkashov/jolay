@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Deliveries, Incidents, Partners } from "./pages/Ops";
-import { PeakWindows, Promos } from "./pages/Tables";
+import { PeakWindows, Promos, TariffZones } from "./pages/Tables";
 import { Login } from "./App";
 import Security from "./pages/Security";
 
@@ -210,5 +210,46 @@ describe("Promo codes page", () => {
     render(<Promos roles={["SUPPORT_AGENT"]} />);
     expect(await screen.findByText("No promo codes yet.")).toBeInTheDocument();
     expect(screen.queryByText("New promo code")).toBeNull();
+  });
+});
+
+describe("Tariff zones", () => {
+  it("lists zones, creates one with numeric coordinates and surcharge, and deletes after confirmation", async () => {
+    const calls: { method: string; url: string; body?: string }[] = [];
+    let rows: unknown[] = [{ id: "z1", city: "ALA", name: "Airport", lat: 43.3521, lng: 77.0405, radius_m: 2000, surcharge: "800.00", applies_to: "EITHER", active: true }];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      const method = init?.method ?? "GET";
+      calls.push({ method, url: String(url), body: init?.body as string | undefined });
+      if (method === "GET") return json(rows);
+      if (method === "DELETE") { rows = []; return new Response(null, { status: 204 }); }
+      return json({ id: "z2" }, 201);
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<TariffZones can={true} />);
+    expect(await screen.findByText("Airport")).toBeInTheDocument();
+    expect(screen.getByText("2000 m")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Add tariff zone"));
+    const name = await screen.findByLabelText("Name");
+    const save = screen.getByText("Save (audited)");
+    expect(save).toBeDisabled();                                  // a name is required
+    fireEvent.change(name, { target: { value: "Station" } });
+    fireEvent.change(screen.getByLabelText("Radius (m, 100–50000)"), { target: { value: "900" } });
+    fireEvent.change(screen.getByLabelText("Surcharge (KZT)"), { target: { value: "600" } });
+    fireEvent.click(save);
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(JSON.parse(calls.find((c) => c.method === "POST")!.body!)).toMatchObject({ city: "ALA", name: "Station", lat: 43.222, lng: 76.8512, radiusM: 900, surcharge: 600, appliesTo: "EITHER", active: true });
+
+    fireEvent.click(await screen.findByText("Delete"));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/admin/pricing/zones/z1"))).toBe(true));
+    expect(await screen.findByText(/No tariff zones defined/)).toBeInTheDocument();
+  });
+
+  it("is read-only for roles that cannot edit prices", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(json([{ id: "z1", city: "ALA", name: "Airport", lat: 43.35, lng: 77.04, radius_m: 2000, surcharge: "800.00", applies_to: "EITHER", active: true }]));
+    render(<TariffZones can={false} />);
+    expect(await screen.findByText("Airport")).toBeInTheDocument();
+    expect(screen.queryByText("Add tariff zone")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

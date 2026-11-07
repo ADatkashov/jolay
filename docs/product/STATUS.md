@@ -11,7 +11,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Roles & authorization (customer / driver / 4 staff roles) | ✅ | method-level checks, suspended accounts blocked immediately |
 | Service zones, places search, reverse geocode | ✅ | places are a seeded DB table (12 Almaty landmarks) — real geocoder not integrated 🧪 |
 | Routing / ETA | 🧪 | `EstimatedRouteProvider` = great-circle × detour factor; flagged `ESTIMATED`. No Google/Mapbox/2GIS adapter yet |
-| Pricing engine (base, km, minute, min fare, booking fee, demand multiplier, rounding, commission, cancellation fee) | ✅ | admin-editable, audited. Peak-hour windows (V17, Admin → Pricing; none defined by default) ✅. Promo codes (V18, Admin → Promo codes; none by default; platform-funded through the PROMO account, ride/cash/wallet/card/refund legs tested) ✅. Per-zone tariffs ⛔ |
+| Pricing engine (base, km, minute, min fare, booking fee, demand multiplier, rounding, commission, cancellation fee) | ✅ | admin-editable, audited. Peak-hour windows (V17, Admin → Pricing; none defined by default) ✅. Promo codes (V18, Admin → Promo codes; none by default; platform-funded through the PROMO account, ride/cash/wallet/card/refund legs tested) ✅. Zone surcharges (V19, Admin → Pricing → Tariff zones; none by default) ✅ — flat fee for trips starting/ending in a circle (e.g. airport); fully polygon-based zones and per-zone rates ⛔ |
 | Ride state machine | ✅ | invalid transitions rejected, tested |
 | Dispatch (PostGIS radius, category eligibility, scoring, expiry, re-offer, radius expansion, concurrency safety) | ✅ | concurrency tests included. Real-road ETA / traffic scoring ⛔ |
 | Ledger (double entry, append-only, idempotent, DB-enforced immutability) | ✅ | |
