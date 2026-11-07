@@ -34,10 +34,11 @@ public class RideService {
     private final AppSettings settings;
     private final MeterRegistry metrics;
     private final RiskService risk;
+    private final kz.jolay.referral.ReferralService referrals;
 
     public RideService(JdbcClient jdbc, GeoService geo, RouteProvider routes, PricingService pricing, RideStateMachine sm, DispatchService dispatch,
-                       PaymentService payments, LedgerService ledger, Notifier notifier, AppSettings settings, MeterRegistry metrics, RiskService risk) {
-        this.risk = risk;
+                       PaymentService payments, LedgerService ledger, Notifier notifier, AppSettings settings, MeterRegistry metrics, RiskService risk, kz.jolay.referral.ReferralService referrals) {
+        this.risk = risk; this.referrals = referrals;
         this.jdbc = jdbc; this.geo = geo; this.routes = routes; this.pricing = pricing; this.sm = sm; this.dispatch = dispatch;
         this.payments = payments; this.ledger = ledger; this.notifier = notifier; this.settings = settings; this.metrics = metrics;
     }
@@ -302,6 +303,7 @@ public class RideService {
         // Keep a simplified route (~5 m tolerance) permanently; raw points are purged after the retention window.
         jdbc.sql("UPDATE rides SET route_line = (SELECT ST_Simplify(ST_MakeLine(location::geometry ORDER BY id), 0.00005)::geography FROM ride_locations WHERE ride_id=:r HAVING count(*) >= 2) WHERE id=:r").param("r", rideId).update();
         payments.settleRideOnCompletion(rideId);
+        referrals.onRideCompleted(rideId);
         risk.onRideCompleted(rideId);
         notifier.notify((UUID) r.get("customer_id"), "RIDE_COMPLETED", "ride-" + rideId + "-completed", Map.of("rideId", rideId.toString(), "status", "COMPLETED", "total", fare.total()));
         metrics.counter("jolay.rides.completed").increment();

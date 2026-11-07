@@ -299,6 +299,7 @@ class ProfileTab extends ConsumerWidget {
       JolayCard(padding: EdgeInsets.zero, child: Column(children: [
         ListTile(leading: const Icon(Icons.edit_outlined), title: Text(ref.t('profile.edit')), trailing: const Icon(Icons.chevron_right), onTap: () => _edit(context, ref)),
         ListTile(leading: const Icon(Icons.language), title: Text(ref.t('profile.language')), trailing: const LanguageSwitcher()),
+        ListTile(key: const Key('profile-invite'), leading: const Icon(Icons.card_giftcard), title: Text(ref.t('profile.invite')), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/invite')),
         ListTile(key: const Key('profile-contacts'), leading: const Icon(Icons.shield_outlined), title: Text(ref.t('profile.contacts')), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/contacts')),
         ListTile(leading: const Icon(Icons.support_agent), title: Text(ref.t('profile.support')), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/support')),
         ListTile(leading: const Icon(Icons.description_outlined), title: Text(ref.t('legal.terms')), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/legal/TERMS')),

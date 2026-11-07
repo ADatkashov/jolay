@@ -52,10 +52,11 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  Future<void> register({required String fullName, required String phone, String? email, required String password, required String locale}) async {
+  Future<void> register({required String fullName, required String phone, String? email, required String password, required String locale, String? referralCode}) async {
     await _api.post('/auth/register', auth: false, body: {
       'fullName': fullName, 'phone': phone, if (email != null && email.isNotEmpty) 'email': email, 'password': password,
       'role': ref.read(requiredRoleProvider), 'acceptTerms': true, 'locale': locale,
+      if (referralCode != null && referralCode.isNotEmpty) 'referralCode': referralCode,
     });
   }
 

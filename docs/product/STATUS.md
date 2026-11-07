@@ -41,7 +41,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Customer marketplace (shops list, menu, cart, checkout with server quote, wallet or cash on delivery, order tracking with handover code; 4 widget tests) | ✅ (not run on a device) |
 | Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |
 | Customer Express (parcel create + tracking) and country-code picker on phone fields (9 tests incl. picker) | ✅ widget-tested |
-| Customer screens not built: referral programme | ⛔ |
+| Referral programme (V16): personal code, optional code at sign-up, one-off PROMO→wallet bonus for both sides after the invited customer's first completed ride (min fare, per-referrer cap, ledger idempotent); **off by default** (`referral.enabled`, amounts editable in Admin → Settings). App: Profile → Invite friends | ✅ backend ITs + widget tests; promo budget is the owner's decision |
 
 ## Mocks (owner's part — to be replaced when accounts/keys/contracts exist)
 | Area | What runs today | To go live |

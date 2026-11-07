@@ -106,3 +106,7 @@ final emergencyContactsProvider = FutureProvider.autoDispose<List<Map<String, dy
   final j = await ref.read(apiProvider).get('/customers/me/emergency-contacts') as List;
   return j.cast<Map<String, dynamic>>();
 });
+
+final referralProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  return (await ref.read(apiProvider).get('/customers/me/referral') as Map).cast<String, dynamic>();
+});

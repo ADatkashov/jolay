@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:jolay_core/jolay_core.dart';
@@ -146,6 +147,45 @@ class EmergencyContactsScreen extends ConsumerWidget {
           if (l.isEmpty) Padding(padding: const EdgeInsets.only(top: 32), child: Center(child: Text(ref.t('contacts.empty'), style: const TextStyle(color: JolayColors.textSecondary)))),
           for (final x in l) ListTile(key: Key('contact-${x['id']}'), leading: const Icon(Icons.shield_outlined), title: Text(x['name'].toString()), subtitle: Text(x['phone'].toString()),
               trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _remove(context, ref, x['id'].toString()))),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Personal invite code and referral statistics. The bonus is paid by the backend only when the programme is switched on.
+class ReferralScreen extends ConsumerWidget {
+  const ReferralScreen({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = ref.watch(referralProvider);
+    return Scaffold(
+      appBar: AppBar(title: Text(ref.t('profile.invite'))),
+      body: r.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => ErrorView(message: ref.t('common.offline'), retryLabel: ref.t('btn.retry'), onRetry: () => ref.invalidate(referralProvider)),
+        data: (d) => ListView(padding: const EdgeInsets.all(20), children: [
+          Text(ref.t('referral.title'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text(ref.t('referral.body'), style: const TextStyle(color: JolayColors.textSecondary)),
+          const SizedBox(height: 20),
+          JolayCard(child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(ref.t('referral.yourCode'), style: const TextStyle(color: JolayColors.textSecondary, fontSize: 12)),
+              Text(d['code'].toString(), key: const Key('referral-code'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 2)),
+            ])),
+            OutlinedButton.icon(key: const Key('referral-copy'), style: OutlinedButton.styleFrom(minimumSize: const Size(120, 44)), icon: const Icon(Icons.copy), label: Text(ref.t('referral.copy')), onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: d['code'].toString()));
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ref.t('referral.copied'))));
+            }),
+          ])),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: JolayCard(child: Column(children: [Text('${d['invited']}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text(ref.t('referral.invited'), style: const TextStyle(color: JolayColors.textSecondary))]))),
+            const SizedBox(width: 12),
+            Expanded(child: JolayCard(child: Column(children: [Text('${d['rewarded']}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), Text(ref.t('referral.rewarded'), style: const TextStyle(color: JolayColors.textSecondary))]))),
+          ]),
+          if (d['enabled'] != true) Padding(padding: const EdgeInsets.only(top: 16), child: Text(ref.t('referral.off'), key: const Key('referral-off'), style: const TextStyle(color: JolayColors.textSecondary))),
         ]),
       ),
     );

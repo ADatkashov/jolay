@@ -205,6 +205,39 @@ void legalAndSosTests() {
     await t.pumpWidget(const SizedBox());
   });
 
+  testWidgets('referral screen shows the code, copies it, and says when the programme is off; sign-up sends the code', (t) async {
+    String? copied;
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    final api = FakeApi({'GET /customers/me/referral': {'code': 'JABCD234', 'enabled': false, 'invited': 2, 'rewarded': 1, 'earned': 1000, 'referrerBonus': 1000, 'refereeBonus': 1000}});
+    await t.pumpWidget(app(const ReferralScreen(), api: api, overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.pump(); await t.pump();
+    expect(find.text('JABCD234'), findsOneWidget);
+    expect(find.byKey(const Key('referral-off')), findsOneWidget);
+    await t.tap(find.byKey(const Key('referral-copy')));
+    await t.pump(const Duration(milliseconds: 300));
+    expect(copied, 'JABCD234');
+    await t.pumpWidget(const SizedBox());
+
+    final api2 = FakeApi({'POST /auth/register': {'phone': '+77012223344'}});
+    await t.pumpWidget(app(const SignUpScreen(), api: api2, overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.enterText(find.byKey(const Key('signup-name')), 'Aidar Bekov');
+    await t.enterText(find.byKey(const Key('signup-phone')), '8 701 222 33 44');
+    await t.enterText(find.byKey(const Key('signup-password')), 'Secret123');
+    await t.enterText(find.byKey(const Key('signup-confirm')), 'Secret123');
+    await t.ensureVisible(find.byKey(const Key('signup-referral')));
+    await t.enterText(find.byKey(const Key('signup-referral')), 'JABCD234');
+    await t.ensureVisible(find.byKey(const Key('signup-terms')));
+    await t.tap(find.byKey(const Key('signup-terms')));
+    await t.ensureVisible(find.text('Sign up').last);
+    await t.tap(find.text('Sign up').last);
+    await t.pump();
+    expect((api2.calls.singleWhere((c) => c.path == '/auth/register').body as Map)['referralCode'], 'JABCD234');
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('sharing a trip creates a link and copies it to the clipboard', (t) async {
     tallScreen(t);
     String? copied;

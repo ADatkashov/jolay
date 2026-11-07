@@ -50,6 +50,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/ride/options', builder: (_, _) => const RideOptionsScreen()),
       GoRoute(path: '/ride/:id', builder: (_, s) => RideTrackScreen(rideId: s.pathParameters['id']!)),
       GoRoute(path: '/legal/:type', builder: (_, s) => LegalScreen(type: s.pathParameters['type']!)),
+      GoRoute(path: '/invite', builder: (_, _) => const ReferralScreen()),
       GoRoute(path: '/contacts', builder: (_, _) => const EmergencyContactsScreen()),
       GoRoute(path: '/support', builder: (_, _) => const SupportListScreen()),
       GoRoute(path: '/support/:id', builder: (_, s) => SupportChatScreen(ticketId: s.pathParameters['id']!, subject: s.extra as String? ?? '')),

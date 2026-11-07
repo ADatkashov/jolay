@@ -35,11 +35,12 @@ public class AuthService {
     private final SecurityProps props;
     private final SmsSender sms;
     private final MfaService mfa;
+    private final kz.jolay.referral.ReferralService referrals;
     private final Map<String, int[]> failures = new ConcurrentHashMap<>();       // identifier -> [count]
     private final Map<String, Instant> lockedUntil = new ConcurrentHashMap<>();
 
-    public AuthService(JdbcClient jdbc, PasswordEncoder encoder, JwtService jwt, SecurityProps props, SmsSender sms, MfaService mfa) {
-        this.jdbc = jdbc; this.encoder = encoder; this.jwt = jwt; this.props = props; this.sms = sms; this.mfa = mfa;
+    public AuthService(JdbcClient jdbc, PasswordEncoder encoder, JwtService jwt, SecurityProps props, SmsSender sms, MfaService mfa, kz.jolay.referral.ReferralService referrals) {
+        this.jdbc = jdbc; this.encoder = encoder; this.jwt = jwt; this.props = props; this.sms = sms; this.mfa = mfa; this.referrals = referrals;
     }
 
     // ---------- helpers ----------
@@ -90,6 +91,7 @@ public class AuthService {
                     .query(UUID.class).single();
         }
         jdbc.sql("INSERT INTO user_roles(user_id, role) VALUES (:id,:r)").param("id", id).param("r", r.role()).update();
+        if ("CUSTOMER".equals(r.role())) referrals.attach(id, r.referralCode());
         sendOtp(phone, "REGISTER");
         return new RegisterResponse(phone, 60);
     }
