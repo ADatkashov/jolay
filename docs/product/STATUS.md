@@ -10,7 +10,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Auth: register, OTP, login, refresh rotation + reuse detection, forgot/reset, logout | ✅ | OTP attempts + hourly + resend throttles, login lockout |
 | Roles & authorization (customer / driver / 4 staff roles) | ✅ | method-level checks, suspended accounts blocked immediately |
 | Service zones, places search, reverse geocode | ✅ | places are a seeded DB table (12 Almaty landmarks) — real geocoder not integrated 🧪 |
-| Routing / ETA | 🧪 | `EstimatedRouteProvider` = great-circle × detour factor; flagged `ESTIMATED`. No Google/Mapbox/2GIS adapter yet |
+| Routing / ETA | 🧪 | default `EstimatedRouteProvider` = great-circle × detour factor, flagged `ESTIMATED`. **OSRM adapter** (`JOLAY_OSRM_URL`, self-hostable on OpenStreetMap data, falls back to the estimate on any error with a circuit breaker): tested against a local stub of the documented Route API only — **never run against a real OSRM server**. No Google/Mapbox/2GIS adapter |
 | Pricing engine (base, km, minute, min fare, booking fee, demand multiplier, rounding, commission, cancellation fee) | ✅ | admin-editable, audited. Peak-hour windows (V17, Admin → Pricing; none defined by default) ✅. Promo codes (V18, Admin → Promo codes; none by default; platform-funded through the PROMO account, ride/cash/wallet/card/refund legs tested) ✅. Zone surcharges (V19, Admin → Pricing → Tariff zones; none by default) ✅ — flat fee for trips starting/ending in a circle (e.g. airport); fully polygon-based zones and per-zone rates ⛔ |
 | Ride state machine | ✅ | invalid transitions rejected, tested |
 | Dispatch (PostGIS radius, category eligibility, scoring, expiry, re-offer, radius expansion, concurrency safety) | ✅ | concurrency tests included. Real-road ETA / traffic scoring ⛔ |
@@ -48,7 +48,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 |---|---|---|
 | SMS / OTP | `LogSmsSender` (code in the log only when `JOLAY_SMS_LOG_CODE=true`) | provide a real `SmsSender` bean (gateway contract + credentials) |
 | Push | `DevPushSender` → `push_outbox`; `FcmPushSender` auto-activates with `JOLAY_FCM_SERVICE_ACCOUNT_FILE` | Firebase project, service account, `google-services.json` / APNs key; implement `PushTokenSource` with `firebase_messaging` and override `pushTokenSourceProvider` in each app's main() |
-| Maps / routing / geocoding | `EstimatedRouteProvider` (straight line × factor, flagged `ESTIMATED`), 12 seeded places, OSM dev tiles | licensed provider (Google/Mapbox/2GIS) behind `RouteProvider` + `TILE_URL` |
+| Maps / routing / geocoding | `EstimatedRouteProvider` (straight line × factor, flagged `ESTIMATED`), 12 seeded places, OSM dev tiles | routing: run an OSRM server on Kazakhstan OSM data and set `JOLAY_OSRM_URL` (see DEPLOYMENT.md), or add a licensed provider (Google/Mapbox/2GIS) behind `RouteProvider`; geocoding and production tiles still need a provider + `TILE_URL` |
 | Card payments | `SandboxPaymentProvider` (signed callbacks, no real money; refused in `prod` unless explicitly allowed) | merchant contract + adapter (docs/PAYMENT_INTEGRATION.md) |
 | Bank payouts | finance transfers manually, records the reference | bank API / payout provider |
 | Legal texts | none (apps show "not published yet") | counsel's texts via Admin → Legal documents |

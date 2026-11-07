@@ -23,6 +23,21 @@ Prometheus scrape config: `infrastructure/monitoring/prometheus.yml`; metrics at
 ## CI (GitHub Actions: `.github/workflows/ci.yml`)
 Backend tests against a PostGIS service container, admin build+tests, Flutter analyze+test for both apps, backend Docker build. First GitHub run: backend tests (PostGIS service), admin build/tests and the backend Docker build passed; the Flutter jobs failed on `flutter analyze` info-level findings, now fixed. See docs/CTO_FINAL_AUDIT.md.
 
+## Road routing (optional, recommended before the pilot)
+Without configuration every route is a great-circle estimate (`routeSource=ESTIMATED`, clients show "estimated route"). Setting `JOLAY_OSRM_URL` (for example `http://osrm:5000`) makes the backend ask an [OSRM](https://project-osrm.org) server for real road distance and duration (`routeSource=OSRM`), which makes fares and ETAs much closer to reality. OSRM is open source and runs on OpenStreetMap data, so no map licence is needed for routing (tiles and geocoding are separate questions, see STATUS.md → Mocks).
+
+Behaviour: 2 s timeout (`jolay.routing.timeout-ms`); on any error, timeout, or "no route" the estimate is used for that request, so riders can always order; after 3 consecutive failures OSRM is skipped for 30 s (`failures-to-open`, `open-seconds`); outcomes are counted in the metric `jolay.routing.osrm{outcome=ok|no_route|error|skipped}` — alert on a rising `error`/`skipped`.
+
+Suggested self-hosting recipe (**not exercised in this repository's CI — verify it on a staging server first**), following the OSRM project's documented Docker workflow with the Geofabrik extract for Kazakhstan:
+```
+wget https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf -P data/
+docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/kazakhstan-latest.osm.pbf
+docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/kazakhstan-latest.osrm
+docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/kazakhstan-latest.osrm
+docker run -d -p 5000:5000 -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/kazakhstan-latest.osrm
+```
+Keep the OSRM port private (only the backend needs it). Check a known pair before switching traffic: `curl "http://localhost:5000/route/v1/driving/76.9567,43.2335;76.9066,43.2025?overview=false"` must return `"code":"Ok"` with a plausible `distance` in metres. Refresh the extract periodically. Respect OpenStreetMap's attribution requirement (visible "© OpenStreetMap contributors" wherever OSM data is shown).
+
 ## Business switches to review before the pilot (all OFF / empty by default)
 Nothing below spends money or changes fares until the owner configures it in the admin console.
 
