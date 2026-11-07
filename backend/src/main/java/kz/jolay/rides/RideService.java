@@ -54,11 +54,12 @@ public class RideService {
         var route = routes.route(r.pickup(), r.dropoff());
         String l = switch (lang == null ? "en" : lang) { case "kk" -> "kk"; case "ru" -> "ru"; default -> "en"; };
         List<CategoryEstimate> out = new ArrayList<>();
+        BigDecimal peak = pricing.peakMultiplierNow(city);
         for (var rule : pricing.rules(city)) {
             var cat = jdbc.sql("SELECT name_" + l + " n, desc_" + l + " d, capacity FROM vehicle_categories WHERE code=:c").param("c", rule.category()).query().listOfRows().get(0);
             Integer eta = nearestEta(city, r.pickup(), rule.category());
             out.add(new CategoryEstimate(rule.category(), (String) cat.get("n"), (String) cat.get("d"), (Integer) cat.get("capacity"),
-                    view(pricing.compute(rule, route.distanceM(), route.durationS(), null)), eta, eta != null));
+                    view(pricing.compute(rule, route.distanceM(), route.durationS(), null, peak)), eta, eta != null));
         }
         return new EstimateResponse(route.distanceM(), route.durationS(), route.source(), out);
     }
@@ -96,7 +97,8 @@ public class RideService {
         var rule = pricing.rule(city, r.category());
         var route = routes.route(r.pickup().point(), r.dropoff().point());
         if (route.distanceM() < 100) throw ApiException.badRequest("trip_too_short", "Pickup and destination are too close");
-        var fare = pricing.compute(rule, route.distanceM(), route.durationS(), null);
+        BigDecimal peak = pricing.peakMultiplierNow(city);
+        var fare = pricing.compute(rule, route.distanceM(), route.durationS(), null, peak);
 
         if ("WALLET".equals(r.paymentMethod())) {
             BigDecimal bal = ledger.balance(ledger.userAccount(customerId, "CUSTOMER_WALLET"));
@@ -109,13 +111,13 @@ public class RideService {
         try {
             id = jdbc.sql("""
                     INSERT INTO rides(customer_id,city_id,category_code,status,pickup_address,pickup,dropoff_address,dropoff,est_distance_m,est_duration_s,est_fare,
-                                      payment_method,pricing_rule_id,idempotency_key,search_started_at)
+                                      payment_method,pricing_rule_id,idempotency_key,search_started_at,surge_multiplier)
                     VALUES (:c,:city,:cat,'CREATED',:pa,ST_SetSRID(ST_MakePoint(:plng,:plat),4326)::geography,:da,ST_SetSRID(ST_MakePoint(:dlng,:dlat),4326)::geography,
-                            :dist,:dur,:fare,:pm,:rule,:idem,now()) RETURNING id""")
+                            :dist,:dur,:fare,:pm,:rule,:idem,now(),:surge) RETURNING id""")
                     .param("c", customerId).param("city", city).param("cat", r.category()).param("pa", pAddr).param("plng", r.pickup().point().lng()).param("plat", r.pickup().point().lat())
                     .param("da", dAddr).param("dlng", r.dropoff().point().lng()).param("dlat", r.dropoff().point().lat())
                     .param("dist", route.distanceM()).param("dur", route.durationS()).param("fare", fare.total()).param("pm", r.paymentMethod())
-                    .param("rule", rule.id()).param("idem", idempotencyKey).query(UUID.class).single();
+                    .param("rule", rule.id()).param("idem", idempotencyKey).param("surge", peak.max(rule.demandMultiplier())).query(UUID.class).single();
         } catch (DuplicateKeyException e) {
             throw ApiException.conflict("active_ride_exists", "You already have an active ride");
         }
@@ -236,7 +238,7 @@ public class RideService {
 
     // ---------------- driver actions ----------------
     private Map<String, Object> lockForDriver(UUID rideId, UUID driverId) {
-        var r = jdbc.sql("SELECT id, status, customer_id, driver_id, est_fare, est_duration_s, est_distance_m, pricing_rule_id, started_at, ST_Distance(pickup, (SELECT location FROM driver_locations WHERE driver_id=:d)) AS dist_pickup FROM rides WHERE id=:id FOR UPDATE")
+        var r = jdbc.sql("SELECT id, status, customer_id, driver_id, est_fare, est_duration_s, est_distance_m, pricing_rule_id, surge_multiplier, started_at, ST_Distance(pickup, (SELECT location FROM driver_locations WHERE driver_id=:d)) AS dist_pickup FROM rides WHERE id=:id FOR UPDATE")
                 .param("id", rideId).param("d", driverId).query().listOfRows().stream().findFirst().orElse(null);
         if (r == null || !driverId.equals(r.get("driver_id"))) throw ApiException.notFound("ride_not_found", "Ride not found");
         return r;
@@ -284,7 +286,7 @@ public class RideService {
         int actualDur = jdbc.sql("SELECT GREATEST(60, EXTRACT(EPOCH FROM (now() - started_at))::int) FROM rides WHERE id=:id").param("id", rideId).query(Integer.class).single();
 
         var rule = pricing.ruleById((UUID) r.get("pricing_rule_id"));
-        var fare = pricing.compute(rule, actualDist, actualDur, null);
+        var fare = pricing.compute(rule, actualDist, actualDur, null, (BigDecimal) r.get("surge_multiplier"));
         BigDecimal cap = Money.roundUp(((BigDecimal) r.get("est_fare")).multiply(settings.getDecimal("rides.max_fare_over_estimate")), rule.roundingStep());
         if (fare.total().compareTo(cap) > 0) {      // protects riders from GPS drift / fraud; see docs/BUSINESS_RULES.md
             BigDecimal commission = Money.scale(cap.multiply(rule.commissionRate()));

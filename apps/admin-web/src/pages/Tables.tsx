@@ -121,7 +121,40 @@ export function Pricing({ roles }: { roles: string[] }) {
     {edit && <div className="card" style={{ marginTop: 20, maxWidth: 560 }}><h3>{edit.category_code} — {edit.city}</h3><div className="grid2">
       {fields.map(([k, label]) => <label key={k}>{label}<input type="number" step="any" value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} /></label>)}</div>
       <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} /> Active</label>
-      <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save}>Save (audited)</button><button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button></div></div>}</>;
+      <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save}>Save (audited)</button><button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button></div></div>}
+    <PeakWindows can={can} /></>;
+}
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** Recurring weekly peak-hour windows (city local time). The effective fare multiplier is max(rule multiplier, highest active matching window). */
+export function PeakWindows({ can }: { can: boolean }) {
+  const { data, error, loading, reload } = useApi<Row[]>("/admin/pricing/peak-windows");
+  const [form, setForm] = useState<Row | null>(null); const [msg, setMsg] = useState("");
+  const blank = () => ({ id: "", city: "ALA", label: "", days: [1, 2, 3, 4, 5], start: "07:30", end: "09:30", multiplier: "1.3", active: true });
+  const toggleDay = (d: number) => form && setForm({ ...form, days: form.days.includes(d) ? form.days.filter((x: number) => x !== d) : [...form.days, d] });
+  const save = () => {
+    if (!form) return;
+    const body = { city: form.city, label: form.label, days: form.days, start: form.start, end: form.end, multiplier: Number(form.multiplier), active: !!form.active };
+    void act(() => form.id ? api("PUT", `/admin/pricing/peak-windows/${form.id}`, body) : api("POST", "/admin/pricing/peak-windows", body), () => { setForm(null); reload(); }, setMsg);
+  };
+  const remove = (w: Row) => { if (window.confirm(`Delete peak window "${w.label}"?`)) void act(() => api("DELETE", `/admin/pricing/peak-windows/${w.id}`), reload, setMsg); };
+  return <><h2 style={{ marginTop: 32 }}>Peak-hour windows</h2>
+    <p className="muted">Fares are multiplied inside these windows (city local time; an end earlier than the start means the window crosses midnight). The multiplier shown in the estimate is the one the rider pays.</p>
+    <Status error={error} loading={loading} />{msg && <div className="err" role="alert">{msg}</div>}
+    <table><thead><tr><th>City</th><th>Label</th><th>Days</th><th>From</th><th>To</th><th>Multiplier</th><th>Active</th><th /></tr></thead><tbody>
+      {data?.length === 0 && <tr><td colSpan={8} className="muted">No peak windows defined — standard fares apply at all times.</td></tr>}
+      {data?.map((w) => <tr key={w.id}><td>{w.city}</td><td>{w.label}</td><td>{w.days.map((d: number) => WEEKDAYS[d - 1]).join(" ")}</td><td>{w.start}</td><td>{w.end}</td><td>×{w.multiplier}</td><td>{pill(w.active ? "ACTIVE" : "OFF")}</td>
+        <td>{can && <><button className="btn ghost" onClick={() => setForm({ ...w, multiplier: String(w.multiplier) })}>Edit</button> <button className="btn ghost" onClick={() => remove(w)}>Delete</button></>}</td></tr>)}</tbody></table>
+    {can && !form && <button className="btn" style={{ marginTop: 12 }} onClick={() => setForm(blank())}>Add peak window</button>}
+    {form && <div className="card" style={{ marginTop: 16, maxWidth: 560 }}><h3>{form.id ? "Edit window" : "New window"}</h3>
+      <label>Label<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></label>
+      <div className="row" style={{ flexWrap: "wrap" }}>{WEEKDAYS.map((n, i) => <label key={n} className="row" style={{ marginRight: 12 }}><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={form.days.includes(i + 1)} onChange={() => toggleDay(i + 1)} /> {n}</label>)}</div>
+      <div className="grid2"><label>From<input type="time" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} /></label>
+        <label>To<input type="time" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} /></label>
+        <label>Multiplier (1–3)<input type="number" step="0.05" min="1" max="3" value={form.multiplier} onChange={(e) => setForm({ ...form, multiplier: e.target.value })} /></label></div>
+      <label className="row"><input type="checkbox" style={{ width: "auto", margin: 0 }} checked={!!form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
+      <div className="row" style={{ marginTop: 12 }}><button className="btn" onClick={save} disabled={!form.label.trim() || form.days.length === 0}>Save (audited)</button><button className="btn ghost" onClick={() => setForm(null)}>Cancel</button></div></div>}</>;
 }
 
 export function Support() {

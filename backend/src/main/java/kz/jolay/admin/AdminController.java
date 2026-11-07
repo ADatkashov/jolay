@@ -190,6 +190,55 @@ public class AdminController {
         return Map.of("id", id);
     }
 
+    // ---------------- peak-hour windows ----------------
+    public record PeakWindowRequest(@NotBlank String city, @NotBlank @Size(max = 60) String label,
+                                    @NotNull @Size(min = 1, max = 7) List<@Min(1) @Max(7) Integer> days,
+                                    @NotNull @Pattern(regexp = "([01]\\d|2[0-3]):[0-5]\\d") String start, @NotNull @Pattern(regexp = "([01]\\d|2[0-3]):[0-5]\\d") String end,
+                                    @NotNull @DecimalMin("1") @DecimalMax("3") BigDecimal multiplier, boolean active) {}
+
+    private UUID cityId(String code) {
+        return jdbc.sql("SELECT id FROM cities WHERE code=:c").param("c", code).query(UUID.class).optional().orElseThrow(() -> ApiException.badRequest("city_not_found", "Unknown city code"));
+    }
+
+    @GetMapping("/pricing/peak-windows") @PreAuthorize(ANY)
+    public List<Map<String, Object>> peakWindows() {
+        var rows = jdbc.sql("SELECT w.id, c.code AS city, w.label, array_to_string(w.days, ',') AS days, to_char(w.start_time,'HH24:MI') AS start, to_char(w.end_time,'HH24:MI') AS \"end\", w.multiplier, w.active FROM peak_windows w JOIN cities c ON c.id=w.city_id ORDER BY c.code, w.start_time").query().listOfRows();
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (var row : rows) {            // days as a JSON array of ISO weekdays
+            Map<String, Object> m = new LinkedHashMap<>(row);
+            m.put("days", Arrays.stream(((String) row.get("days")).split(",")).map(Integer::valueOf).toList());
+            out.add(m);
+        }
+        return out;
+    }
+
+    @PostMapping("/pricing/peak-windows") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize(FIN) @Transactional
+    public Map<String, Object> createPeakWindow(@Valid @RequestBody PeakWindowRequest r) {
+        UUID city = cityId(r.city());
+        UUID id = jdbc.sql("INSERT INTO peak_windows(city_id,label,days,start_time,end_time,multiplier,active) VALUES (:c, :l, :d::smallint[], :s::time, :e::time, :m, :a) RETURNING id")
+                .param("c", city).param("l", r.label().trim()).param("d", "{" + r.days().stream().distinct().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}")
+                .param("s", r.start()).param("e", r.end()).param("m", r.multiplier()).param("a", r.active()).query(UUID.class).single();
+        audit.log(Auth.id(), role(), "PEAK_WINDOW_CREATED", "peak_window", id, Map.of("after", r.toString()));
+        return Map.of("id", id);
+    }
+
+    @PutMapping("/pricing/peak-windows/{id}") @PreAuthorize(FIN) @Transactional
+    public Map<String, Object> updatePeakWindow(@PathVariable UUID id, @Valid @RequestBody PeakWindowRequest r) {
+        UUID city = cityId(r.city());
+        int n = jdbc.sql("UPDATE peak_windows SET city_id=:c, label=:l, days=:d::smallint[], start_time=:s::time, end_time=:e::time, multiplier=:m, active=:a, updated_at=now() WHERE id=:id")
+                .param("c", city).param("l", r.label().trim()).param("d", "{" + r.days().stream().distinct().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + "}")
+                .param("s", r.start()).param("e", r.end()).param("m", r.multiplier()).param("a", r.active()).param("id", id).update();
+        if (n == 0) throw ApiException.notFound("peak_window_not_found", "Peak window not found");
+        audit.log(Auth.id(), role(), "PEAK_WINDOW_UPDATED", "peak_window", id, Map.of("after", r.toString()));
+        return Map.of("id", id);
+    }
+
+    @DeleteMapping("/pricing/peak-windows/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @PreAuthorize(FIN) @Transactional
+    public void deletePeakWindow(@PathVariable UUID id) {
+        if (jdbc.sql("DELETE FROM peak_windows WHERE id=:id").param("id", id).update() == 0) throw ApiException.notFound("peak_window_not_found", "Peak window not found");
+        audit.log(Auth.id(), role(), "PEAK_WINDOW_DELETED", "peak_window", id, Map.of());
+    }
+
     // ---------------- payments / refunds ----------------
     @GetMapping("/payments") @PreAuthorize(FIN)
     public List<Map<String, Object>> payments(@RequestParam(required = false) String status) {

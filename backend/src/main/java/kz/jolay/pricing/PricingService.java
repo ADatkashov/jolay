@@ -49,7 +49,14 @@ public class PricingService {
      * total = max(minFare, (base + km*dist + min*dur) * demandMultiplier + fees - discount), rounded up to the rounding step.
      * commission = total * commissionRate; driver earnings = total - commission.
      */
-    public Fare compute(Rule r, int distanceM, int durationS, BigDecimal discount) {
+    public Fare compute(Rule r, int distanceM, int durationS, BigDecimal discount) { return compute(r, distanceM, durationS, discount, BigDecimal.ONE); }
+
+    /** As above, with a peak-window multiplier: the effective multiplier is the larger of the rule's own demand multiplier and {@code peak}. */
+    public Fare compute(Rule r0, int distanceM, int durationS, BigDecimal discount, BigDecimal peak) {
+        Rule r = peak != null && peak.compareTo(r0.demandMultiplier()) > 0
+                ? new Rule(r0.id(), r0.cityId(), r0.category(), r0.baseFare(), r0.perKm(), r0.perMinute(), r0.minFare(), r0.bookingFee(), r0.cancellationFee(),
+                        r0.freeCancelSeconds(), r0.commissionRate(), peak, r0.roundingStep(), r0.active())
+                : r0;
         BigDecimal km = BigDecimal.valueOf(distanceM).divide(BigDecimal.valueOf(1000), 4, RoundingMode.HALF_UP);
         BigDecimal minutes = BigDecimal.valueOf(durationS).divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
         BigDecimal distanceFare = Money.scale(r.perKm().multiply(km));
@@ -62,4 +69,20 @@ public class PricingService {
         return new Fare(Money.scale(r.baseFare()), distanceFare, timeFare, Money.scale(r.bookingFee()), disc,
                 r.demandMultiplier(), total, r.commissionRate(), commission, total.subtract(commission));
     }
+
+    /** Highest multiplier among the city's active peak windows covering {@code at} (city-local time), or 1.00 when none applies. */
+    public BigDecimal peakMultiplier(UUID cityId, java.time.Instant at) {
+        BigDecimal m = jdbc.sql("""
+                SELECT max(w.multiplier) FROM peak_windows w JOIN cities c ON c.id=w.city_id,
+                LATERAL (SELECT (:at::timestamptz AT TIME ZONE c.timezone) AS l) x
+                WHERE w.city_id=:c AND w.active AND (
+                      (w.start_time < w.end_time AND x.l::time >= w.start_time AND x.l::time < w.end_time AND extract(isodow FROM x.l)::int = ANY(w.days))
+                   OR (w.start_time > w.end_time AND (
+                          (x.l::time >= w.start_time AND extract(isodow FROM x.l)::int = ANY(w.days))
+                       OR (x.l::time < w.end_time AND (((extract(isodow FROM x.l)::int + 5) % 7) + 1) = ANY(w.days)))))""")
+                .param("c", cityId).param("at", java.sql.Timestamp.from(at)).query(BigDecimal.class).optional().orElse(null);
+        return m == null ? BigDecimal.ONE.setScale(2) : m;
+    }
+
+    public BigDecimal peakMultiplierNow(UUID cityId) { return peakMultiplier(cityId, java.time.Instant.now()); }
 }

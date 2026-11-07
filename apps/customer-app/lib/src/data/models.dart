@@ -8,8 +8,11 @@ class Place {
 
 class FareView {
   final String base, distance, time, fees, discount, total;
+  /// Demand/peak multiplier applied by the backend (1.0 = standard fare).
+  final double multiplier;
   FareView.fromJson(Map<String, dynamic> j)
-      : base = j['baseFare'].toString(), distance = j['distanceFare'].toString(), time = j['timeFare'].toString(),
+      : multiplier = double.tryParse('${j['multiplier'] ?? 1}') ?? 1,
+        base = j['baseFare'].toString(), distance = j['distanceFare'].toString(), time = j['timeFare'].toString(),
         fees = j['fees'].toString(), discount = j['discount'].toString(), total = j['total'].toString();
 }
 

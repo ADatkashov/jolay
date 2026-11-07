@@ -17,6 +17,7 @@ Idempotency: send `Idempotency-Key` on `POST /rides`, `POST /wallet/top-ups`, `P
 | Safety | `POST /incidents` (SOS/COMPLAINT/ACCIDENT/OTHER) · `GET /incidents` |
 | Payouts (driver) | `POST/GET /drivers/payouts` |
 | Legal (public) | `GET /catalog/legal/{TERMS|PRIVACY|ABOUT}?lang=` |
+| Peak windows (staff) | `GET /admin/pricing/peak-windows` (all staff) · `POST/PUT/DELETE /admin/pricing/peak-windows[/{id}]` (finance/super, audited) |
 | Referral (customer) | `GET /customers/me/referral` · `referralCode` optional field on `POST /auth/register` |
 | Emergency contacts (customer) | `GET/POST /customers/me/emergency-contacts` · `DELETE /customers/me/emergency-contacts/{id}` (max 3; SOS texts them a trip link) |
 | Trip sharing | `POST /rides/{id}/share` · `DELETE /rides/{id}/share` (customer) · public `GET /catalog/ride-share/{token}` (JSON) · `GET /catalog/trip/{token}` (HTML viewer) |
