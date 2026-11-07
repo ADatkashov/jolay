@@ -31,6 +31,9 @@ curl -s -X POST $API/drivers/offers/<offer_id>/accept -H "Authorization: Bearer 
 # then: /drivers/rides/{id}/en-route, (post a location at the pickup), arrived, start, (post locations), complete; customer: /rides/{id}/rating
 ```
 
+## Live contract test (apps ↔ real backend)
+`scripts/live-contract-test.sh` starts the real backend against a fresh PostgreSQL/PostGIS database and runs the apps' real data layer against it (`apps/customer-app/integration/live_contract_test.dart`): sign-up with the OTP read from the dev SMS log, driver onboarding and admin approval, a full ride with the WebSocket event, an Express parcel, wallet top-up, a promo + peak + zone ride, SOS, logout. It needs JDK 21, Flutter and a PostGIS server; `LIVE_RECREATE_DB=1` drops and recreates the database with the local `psql` tools. It runs in CI as the `live-contract` job. When it fails, the message names the field an app reads that the backend did not send. It deliberately lives outside `test/`, so plain `flutter test` does not run it.
+
 ## Tests
 * Backend: 46 tests — unit (pricing, state machine) + integration against real PostgreSQL/PostGIS: auth/security, dispatch incl. concurrency, payments/ledger, end-to-end rides.
 * `shared/jolay_core`: 9 · `customer-app`: 8 widget tests · `driver-app`: 4 · `admin-web`: 7 (vitest).

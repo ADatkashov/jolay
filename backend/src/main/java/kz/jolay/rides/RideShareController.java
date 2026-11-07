@@ -18,7 +18,8 @@ import java.util.UUID;
  */
 @RestController
 public class RideShareController {
-    private static final String ACTIVE = "('DRIVER_ASSIGNED','DRIVER_ARRIVING','DRIVER_ARRIVED','IN_PROGRESS')";
+    /** Statuses in which the shared link is "live" (the viewer page keeps refreshing). While the app is still searching for a driver there is no position yet, but the link must stay live so the viewer sees the driver being found. */
+    private static final String ACTIVE = "('CREATED','SEARCHING_DRIVER','DRIVER_ASSIGNED','DRIVER_ARRIVING','DRIVER_ARRIVED','IN_PROGRESS')";
     private final JdbcClient jdbc;
 
     private final RideShareService shares;

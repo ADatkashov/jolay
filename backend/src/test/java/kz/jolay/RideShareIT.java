@@ -47,6 +47,20 @@ class RideShareIT extends IntegrationTestBase {
         assertEquals(404, get("/api/v1/catalog/ride-share/" + token, null).status());
     }
 
+    /** Found by the live contract test: a link opened while the app is still searching must stay live, otherwise the viewer page stops refreshing and never shows the driver. */
+    @Test
+    void aLinkSharedWhileSearchingIsLiveButHasNoPositionYet() {
+        Session c = customer(); driver("ECONOMY", 43.2340, 76.9570);
+        String rideId = requestRide(c, "ECONOMY", "CASH").s("id");
+        String token = post("/api/v1/rides/" + rideId + "/share", c.token(), null).s("token");
+        Resp pub = get("/api/v1/catalog/ride-share/" + token, null);
+        assertEquals(200, pub.status());
+        assertEquals("SEARCHING_DRIVER", pub.s("status"));
+        assertTrue(pub.body().path("active").asBoolean(), "the viewer must keep polling while a driver is being found");
+        assertFalse(pub.body().has("driverLocation"));
+        assertFalse(pub.body().has("driverName"));
+    }
+
     @Test
     void finishedRideKeepsFinalStatusWithoutLocationThenExpires() {
         Session c = customer(); Session d = driver("ECONOMY", 43.2340, 76.9570);
