@@ -42,6 +42,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Terms/Privacy/About screens + publishing mechanism | ✅ mechanism; ⛔ content (needs counsel) |
 | Customer Express (parcel create + tracking) and country-code picker on phone fields (9 tests incl. picker) | ✅ widget-tested |
 | Referral programme (V16): personal code, optional code at sign-up, one-off PROMO→wallet bonus for both sides after the invited customer's first completed ride (min fare, per-referrer cap, ledger idempotent); **off by default** (`referral.enabled`, amounts editable in Admin → Settings). App: Profile → Invite friends | ✅ backend ITs + widget tests; promo budget is the owner's decision |
+| Live contract test (apps' data layer ↔ real backend, 7 scenarios) | ✅ | runs in CI (`live-contract`); found a real bug on its first run (shared trip link stopped refreshing while a driver was still being searched) |
 
 ## Mocks (owner's part — to be replaced when accounts/keys/contracts exist)
 | Area | What runs today | To go live |
@@ -56,6 +57,6 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 
 ## Known limitations
 * Map tiles default to public OpenStreetMap (dev only — policy forbids production use).
-* The apps have not been exercised against a live backend on a device; only widget tests with a faked API.
+* The apps' **screens** have not been exercised on a device or against a live backend (widget tests use a faked API). What *is* verified live: the apps' real data layer (ApiClient, AuthController, WebSocket client, the customer app's providers and models, plus the keys the driver app reads) against the real backend — sign-up/OTP, driver onboarding and approval, a full cash ride with the WebSocket event, Express parcel with handover code, wallet top-up, a promo + peak + zone-surcharge wallet ride, SOS, logout (`scripts/live-contract-test.sh`, CI job `live-contract`). It does not cover layout, navigation, permissions, background location or push.
 * Kazakh/Russian strings were written by the model and need review by native speakers.
 * Load/soak testing: see docs/DEPLOYMENT.md#load-test for the measured numbers and their limits.
