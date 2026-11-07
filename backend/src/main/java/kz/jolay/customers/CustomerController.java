@@ -69,6 +69,30 @@ public class CustomerController {
         return Map.of("id", id, "label", r.label(), "address", r.address(), "lat", r.point().lat(), "lng", r.point().lng());
     }
 
+    public record ContactRequest(@NotBlank @Size(min = 2, max = 80) String name, @NotBlank String phone) {}
+
+    @GetMapping("/customers/me/emergency-contacts") @PreAuthorize("hasRole('CUSTOMER')")
+    public List<Map<String, Object>> contacts() {
+        return jdbc.sql("SELECT id, name, phone FROM emergency_contacts WHERE user_id=:u ORDER BY created_at").param("u", Auth.id()).query().listOfRows();
+    }
+
+    @PostMapping("/customers/me/emergency-contacts") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasRole('CUSTOMER')")
+    public Map<String, Object> addContact(@Valid @RequestBody ContactRequest r) {
+        String phone = r.phone().replaceAll("[\\s()\\-]", "");
+        if (!phone.matches("\\+[1-9]\\d{9,14}")) throw ApiException.badRequest("invalid_phone", "Enter the phone number in international format");
+        if (jdbc.sql("SELECT count(*) FROM emergency_contacts WHERE user_id=:u").param("u", Auth.id()).query(Integer.class).single() >= 3)
+            throw ApiException.badRequest("too_many_contacts", "You can add up to 3 emergency contacts");
+        if (jdbc.sql("SELECT count(*) FROM emergency_contacts WHERE user_id=:u AND phone=:p").param("u", Auth.id()).param("p", phone).query(Integer.class).single() > 0)
+            throw ApiException.conflict("contact_exists", "This contact is already added");
+        UUID id = jdbc.sql("INSERT INTO emergency_contacts(user_id,name,phone) VALUES (:u,:n,:p) RETURNING id").param("u", Auth.id()).param("n", r.name().trim()).param("p", phone).query(UUID.class).single();
+        return Map.of("id", id, "name", r.name().trim(), "phone", phone);
+    }
+
+    @DeleteMapping("/customers/me/emergency-contacts/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @PreAuthorize("hasRole('CUSTOMER')")
+    public void deleteContact(@PathVariable UUID id) {
+        jdbc.sql("DELETE FROM emergency_contacts WHERE id=:i AND user_id=:u").param("i", id).param("u", Auth.id()).update();
+    }
+
     @DeleteMapping("/customers/me/addresses/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @PreAuthorize("hasRole('CUSTOMER')")
     public void deleteAddress(@PathVariable UUID id) {
         jdbc.sql("UPDATE customer_addresses SET deleted_at=now() WHERE id=:i AND user_id=:u").param("i", id).param("u", Auth.id()).update();

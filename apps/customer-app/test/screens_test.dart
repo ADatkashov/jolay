@@ -8,6 +8,7 @@ import 'package:jolay_customer/src/screens/auth_screens.dart';
 import 'package:jolay_customer/src/screens/legal_screen.dart';
 import 'package:jolay_customer/src/screens/onboarding.dart';
 import 'package:jolay_customer/src/screens/ride_screens.dart';
+import 'package:jolay_customer/src/screens/support_screens.dart';
 
 import 'helpers.dart';
 
@@ -179,6 +180,29 @@ void legalAndSosTests() {
     await t.pump(); await t.pump();
     expect(find.text('Текст политики'), findsOneWidget);
     expect(find.text('Версия 3'), findsOneWidget);
+  });
+
+  testWidgets('emergency contacts: list, add with a normalised phone, and remove', (t) async {
+    final api = FakeApi({
+      'GET /customers/me/emergency-contacts': [{'id': 'c1', 'name': 'Mom', 'phone': '+77011112233'}],
+      'POST /customers/me/emergency-contacts': {'id': 'c2', 'name': 'Dad', 'phone': '+77011112244'},
+      'DELETE /customers/me/emergency-contacts/c1': null,
+    });
+    await t.pumpWidget(app(const EmergencyContactsScreen(), api: api, overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.pump(); await t.pump();
+    expect(find.text('Mom'), findsOneWidget);
+    await t.tap(find.byKey(const Key('contact-add')));
+    await t.pumpAndSettle();
+    await t.enterText(find.byKey(const Key('contact-name')), 'Dad');
+    await t.enterText(find.byKey(const Key('contact-phone')), '8 701 111 22 44');
+    await t.tap(find.byKey(const Key('contact-save')));
+    await t.pumpAndSettle();
+    final post = api.calls.firstWhere((c) => c.method == 'POST');
+    expect(post.body, {'name': 'Dad', 'phone': '+77011112244'});
+    await t.tap(find.byIcon(Icons.delete_outline));
+    await t.pumpAndSettle();
+    expect(api.calls.any((c) => c.method == 'DELETE' && c.path == '/customers/me/emergency-contacts/c1'), isTrue);
+    await t.pumpWidget(const SizedBox());
   });
 
   testWidgets('sharing a trip creates a link and copies it to the clipboard', (t) async {
