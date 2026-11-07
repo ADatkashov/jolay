@@ -150,7 +150,7 @@ class _OptionsState extends ConsumerState<RideOptionsScreen> {
             : _est == null ? const Center(child: CircularProgressIndicator())
             : ListView(padding: const EdgeInsets.all(16), children: [
                 for (final c in _est!.categories)
-                  Padding(padding: const EdgeInsets.only(bottom: 10), child: _CategoryCard(key: Key('cat-${c.code}'), c: c, selected: c.code == _category, seatsLabel: ref.t('ride.seats'), etaLabel: ref.t('ride.eta'), noDrivers: ref.t('ride.noDrivers'), onTap: () => setState(() => _category = c.code))),
+                  Padding(padding: const EdgeInsets.only(bottom: 10), child: _CategoryCard(key: Key('cat-${c.code}'), c: c, selected: c.code == _category, seatsLabel: ref.t('ride.seats'), etaLabel: ref.t('ride.eta'), noDrivers: ref.t('ride.noDrivers'), highDemand: ref.t('ride.highDemand'), onTap: () => setState(() => _category = c.code))),
                 const SizedBox(height: 8),
                 Text(ref.t('ride.payment'), style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
@@ -168,9 +168,9 @@ class _OptionsState extends ConsumerState<RideOptionsScreen> {
 class _CategoryCard extends StatelessWidget {
   final CategoryEstimate c;
   final bool selected;
-  final String seatsLabel, etaLabel, noDrivers;
+  final String seatsLabel, etaLabel, noDrivers, highDemand;
   final VoidCallback onTap;
-  const _CategoryCard({super.key, required this.c, required this.selected, required this.seatsLabel, required this.etaLabel, required this.noDrivers, required this.onTap});
+  const _CategoryCard({super.key, required this.c, required this.selected, required this.seatsLabel, required this.etaLabel, required this.noDrivers, required this.highDemand, required this.onTap});
   @override
   Widget build(BuildContext context) => InkWell(
         borderRadius: BorderRadius.circular(JolayRadius.md), onTap: onTap,
@@ -185,7 +185,11 @@ class _CategoryCard extends StatelessWidget {
               Text(c.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: JolayColors.textSecondary, fontSize: 12)),
               Text(c.available ? '${formatDuration(c.etaSeconds ?? 0)} $etaLabel · ${c.capacity} $seatsLabel' : '$noDrivers · ${c.capacity} $seatsLabel', style: TextStyle(fontSize: 12, color: c.available ? JolayColors.success : JolayColors.textSecondary)),
             ])),
-            Text(formatKzt(c.fare.total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(formatKzt(c.fare.total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              if (c.fare.multiplier > 1)
+                Text('$highDemand ×${c.fare.multiplier.toStringAsFixed(c.fare.multiplier * 10 % 1 == 0 ? 1 : 2)}', key: Key('peak-${c.code}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: JolayColors.error)),
+            ]),
           ]),
         ),
       );

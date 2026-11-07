@@ -42,6 +42,8 @@
 | 37 | A driver/courier with `dispatch.cancel_cooldown_count` (3) cancellations after accepting (rides + deliveries) inside `dispatch.cancel_cooldown_hours` (24) is skipped by dispatch until the oldest age out; nothing is charged and the account is never suspended automatically. Courier cancellations raise the same advisory REPEATED_CANCELLATIONS flag as drivers (`risk.courier_cancels_24h`) | `DispatchService`, `DeliveryDispatchService`, `RiskService.onCourierCancel` |
 
 Customer cancellation fee and free window, commission, base/km/minute/minimum fares, demand multiplier, dispatch radii/timeouts are all configurable (Admin → Pricing / Settings).
+**Peak-hour windows:** recurring weekly windows per city in the city's local time (an end before the start crosses midnight). The effective multiplier is the larger of the pricing rule's demand multiplier and the highest active matching window. It is applied to the estimate, stored on the ride when it is requested (`rides.surge_multiplier`) and reused for the final fare, so the rider pays the multiplier they were quoted even if the window ends mid-ride. The existing cap `rides.max_fare_over_estimate` still applies. No windows are seeded.
+
 **Referral bonus:** disabled by default. When `referral.enabled=true`, an invited customer's first completed ride with a final fare of at least `referral.min_fare` pays `referral.referrer_bonus` to the inviter and `referral.referee_bonus` to the invitee from the PROMO account (ledger type BONUS, idempotent per invitee, capped at `referral.max_rewards_per_referrer` per inviter, suspended inviters get nothing).
 
-**Rules not yet implemented:** promo codes, peak-hour/surge automation, scheduled rides, delivery rules.
+**Rules not yet implemented:** promo codes, scheduled rides, delivery rules.

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Deliveries, Incidents, Partners } from "./pages/Ops";
+import { PeakWindows } from "./pages/Tables";
 import { Login } from "./App";
 import Security from "./pages/Security";
 
@@ -130,5 +131,47 @@ describe("enforced two-factor", () => {
     expect(await screen.findByText(/required for your role/)).toBeInTheDocument();
     expect(screen.getByText("Set up two-factor authentication")).toBeInTheDocument();
     expect(screen.queryByText("Payouts")).toBeNull();
+  });
+});
+
+describe("Peak-hour windows", () => {
+  it("lists windows, creates one with weekday checkboxes and numeric multiplier, and deletes after confirmation", async () => {
+    const calls: { method: string; url: string; body?: string }[] = [];
+    let rows: unknown[] = [{ id: "w1", city: "ALA", label: "Morning rush", days: [1, 2, 3, 4, 5], start: "07:30", end: "09:30", multiplier: "1.30", active: true }];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      const method = init?.method ?? "GET";
+      calls.push({ method, url: String(url), body: init?.body as string | undefined });
+      if (method === "GET") return json(rows);
+      if (method === "DELETE") { rows = []; return new Response(null, { status: 204 }); }
+      return json({ id: "w2" }, 201);
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<PeakWindows can={true} />);
+    expect(await screen.findByText("Morning rush")).toBeInTheDocument();
+    expect(screen.getByText("Mon Tue Wed Thu Fri")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Add peak window"));
+    const label = await screen.findByLabelText("Label");
+    const save = screen.getByText("Save (audited)");
+    expect(save).toBeDisabled();                                  // a label is required
+    fireEvent.change(label, { target: { value: "Evening rush" } });
+    fireEvent.click(screen.getByLabelText("Sat"));
+    fireEvent.change(screen.getByLabelText("Multiplier (1–3)"), { target: { value: "1.5" } });
+    fireEvent.click(save);
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    const body = JSON.parse(calls.find((c) => c.method === "POST")!.body!);
+    expect(body).toMatchObject({ city: "ALA", label: "Evening rush", days: [1, 2, 3, 4, 5, 6], start: "07:30", end: "09:30", multiplier: 1.5, active: true });
+
+    fireEvent.click(await screen.findByText("Delete"));
+    await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/admin/pricing/peak-windows/w1"))).toBe(true));
+    expect(await screen.findByText(/No peak windows defined/)).toBeInTheDocument();
+  });
+
+  it("is read-only for roles that cannot edit prices", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(json([{ id: "w1", city: "ALA", label: "Night", days: [5, 6], start: "22:00", end: "02:00", multiplier: "1.50", active: true }]));
+    render(<PeakWindows can={false} />);
+    expect(await screen.findByText("Night")).toBeInTheDocument();
+    expect(screen.queryByText("Add peak window")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

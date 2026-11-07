@@ -85,7 +85,7 @@ void main() {
     final est = {
       'distanceM': 7400, 'durationS': 960, 'routeSource': 'ESTIMATED',
       'categories': [
-        {'code': 'ECONOMY', 'name': 'JOLAY Economy', 'description': 'Affordable', 'capacity': 4, 'etaSeconds': 180, 'available': true, 'fare': _fare('1340.00')},
+        {'code': 'ECONOMY', 'name': 'JOLAY Economy', 'description': 'Affordable', 'capacity': 4, 'etaSeconds': 180, 'available': true, 'fare': {..._fare('1340.00'), 'multiplier': '1.30'}},
         {'code': 'BUSINESS', 'name': 'JOLAY Business', 'description': 'Premium', 'capacity': 4, 'etaSeconds': null, 'available': false, 'fare': _fare('3200.00')},
       ],
     };
@@ -98,6 +98,8 @@ void main() {
     expect(find.text('JOLAY Economy'), findsOneWidget);
     expect(find.textContaining(RegExp(r'1[\s\u00A0\u202F]340')), findsOneWidget);                    // price comes from the backend response
     expect(find.text('No drivers nearby · 4 seats'), findsOneWidget);
+    expect(find.text('High demand ×1.3'), findsOneWidget);                                             // peak multiplier is shown before the rider confirms
+    expect(find.byKey(const Key('peak-BUSINESS')), findsNothing);                                       // standard fare: no badge
     await t.tap(find.byKey(const Key('cat-BUSINESS')));
     await t.ensureVisible(find.byKey(const Key('pay-WALLET')));
     await t.tap(find.byKey(const Key('pay-WALLET')));
