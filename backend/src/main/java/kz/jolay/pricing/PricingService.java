@@ -52,7 +52,10 @@ public class PricingService {
     public Fare compute(Rule r, int distanceM, int durationS, BigDecimal discount) { return compute(r, distanceM, durationS, discount, BigDecimal.ONE); }
 
     /** As above, with a peak-window multiplier: the effective multiplier is the larger of the rule's own demand multiplier and {@code peak}. */
-    public Fare compute(Rule r0, int distanceM, int durationS, BigDecimal discount, BigDecimal peak) {
+    public Fare compute(Rule r0, int distanceM, int durationS, BigDecimal discount, BigDecimal peak) { return compute(r0, distanceM, durationS, discount, peak, BigDecimal.ZERO); }
+
+    /** As above, plus a flat zone surcharge that is added to the fees (not multiplied) and therefore also subject to commission. */
+    public Fare compute(Rule r0, int distanceM, int durationS, BigDecimal discount, BigDecimal peak, BigDecimal zoneSurcharge) {
         Rule r = peak != null && peak.compareTo(r0.demandMultiplier()) > 0
                 ? new Rule(r0.id(), r0.cityId(), r0.category(), r0.baseFare(), r0.perKm(), r0.perMinute(), r0.minFare(), r0.bookingFee(), r0.cancellationFee(),
                         r0.freeCancelSeconds(), r0.commissionRate(), peak, r0.roundingStep(), r0.active())
@@ -63,10 +66,11 @@ public class PricingService {
         BigDecimal timeFare = Money.scale(r.perMinute().multiply(minutes));
         BigDecimal variable = Money.scale(r.baseFare().add(distanceFare).add(timeFare).multiply(r.demandMultiplier()));
         BigDecimal disc = discount == null ? Money.ZERO : Money.scale(discount);
-        BigDecimal raw = variable.add(r.bookingFee()).subtract(disc);
+        BigDecimal fees = Money.scale(r.bookingFee().add(zoneSurcharge == null ? Money.ZERO : zoneSurcharge));
+        BigDecimal raw = variable.add(fees).subtract(disc);
         BigDecimal total = Money.roundUp(raw.max(r.minFare()), r.roundingStep());
         BigDecimal commission = Money.scale(total.multiply(r.commissionRate()));
-        return new Fare(Money.scale(r.baseFare()), distanceFare, timeFare, Money.scale(r.bookingFee()), disc,
+        return new Fare(Money.scale(r.baseFare()), distanceFare, timeFare, fees, disc,
                 r.demandMultiplier(), total, r.commissionRate(), commission, total.subtract(commission));
     }
 
@@ -82,6 +86,20 @@ public class PricingService {
                        OR (x.l::time < w.end_time AND (((extract(isodow FROM x.l)::int + 5) % 7) + 1) = ANY(w.days)))))""")
                 .param("c", cityId).param("at", java.sql.Timestamp.from(at)).query(BigDecimal.class).optional().orElse(null);
         return m == null ? BigDecimal.ONE.setScale(2) : m;
+    }
+
+    /**
+     * Sum of the surcharges of the city's active tariff zones that apply to this trip: a PICKUP zone counts when the pickup is inside it, a DROPOFF zone when the
+     * destination is, an EITHER zone once when at least one of them is. A zone never counts twice.
+     */
+    public BigDecimal zoneSurcharge(UUID cityId, kz.jolay.common.GeoPoint pickup, kz.jolay.common.GeoPoint dropoff) {
+        BigDecimal sum = jdbc.sql("""
+                SELECT COALESCE(sum(z.surcharge), 0) FROM tariff_zones z, LATERAL (SELECT
+                    ST_DWithin(z.center, ST_SetSRID(ST_MakePoint(:plng,:plat),4326)::geography, z.radius_m) AS p,
+                    ST_DWithin(z.center, ST_SetSRID(ST_MakePoint(:dlng,:dlat),4326)::geography, z.radius_m) AS d) x
+                WHERE z.city_id=:c AND z.active AND ((z.applies_to='PICKUP' AND x.p) OR (z.applies_to='DROPOFF' AND x.d) OR (z.applies_to='EITHER' AND (x.p OR x.d)))""")
+                .param("c", cityId).param("plng", pickup.lng()).param("plat", pickup.lat()).param("dlng", dropoff.lng()).param("dlat", dropoff.lat()).query(BigDecimal.class).single();
+        return Money.scale(sum);
     }
 
     public BigDecimal peakMultiplierNow(UUID cityId) { return peakMultiplier(cityId, java.time.Instant.now()); }

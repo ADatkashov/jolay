@@ -17,6 +17,7 @@ Idempotency: send `Idempotency-Key` on `POST /rides`, `POST /wallet/top-ups`, `P
 | Safety | `POST /incidents` (SOS/COMPLAINT/ACCIDENT/OTHER) · `GET /incidents` |
 | Payouts (driver) | `POST/GET /drivers/payouts` |
 | Legal (public) | `GET /catalog/legal/{TERMS|PRIVACY|ABOUT}?lang=` |
+| Tariff zones (staff) | `GET /admin/pricing/zones` (all staff) · `POST/PUT/DELETE /admin/pricing/zones[/{id}]` (finance/super, audited) |
 | Promo codes | optional `promoCode` on `POST /rides/estimate` and `POST /rides` (fare views carry `discount` and `payable`; rides carry `promoCode`, `promoDiscount`, `payable`) · staff: `GET /admin/promos` (all) · `POST/PUT /admin/promos[/{id}]` (finance/super, audited) |
 | Peak windows (staff) | `GET /admin/pricing/peak-windows` (all staff) · `POST/PUT/DELETE /admin/pricing/peak-windows[/{id}]` (finance/super, audited) |
 | Referral (customer) | `GET /customers/me/referral` · `referralCode` optional field on `POST /auth/register` |

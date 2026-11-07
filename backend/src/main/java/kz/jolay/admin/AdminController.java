@@ -239,6 +239,40 @@ public class AdminController {
         audit.log(Auth.id(), role(), "PEAK_WINDOW_DELETED", "peak_window", id, Map.of());
     }
 
+    // ---------------- tariff zones (flat surcharges) ----------------
+    public record TariffZoneRequest(@NotBlank String city, @NotBlank @Size(max = 80) String name,
+                                    @NotNull @DecimalMin("-90") @DecimalMax("90") Double lat, @NotNull @DecimalMin("-180") @DecimalMax("180") Double lng,
+                                    @NotNull @Min(100) @Max(50000) Integer radiusM, @NotNull @DecimalMin("0.01") @DecimalMax("100000") BigDecimal surcharge,
+                                    @NotBlank @Pattern(regexp = "PICKUP|DROPOFF|EITHER") String appliesTo, boolean active) {}
+
+    @GetMapping("/pricing/zones") @PreAuthorize(ANY)
+    public List<Map<String, Object>> tariffZones() {
+        return jdbc.sql("SELECT z.id, c.code AS city, z.name, ST_Y(z.center::geometry) AS lat, ST_X(z.center::geometry) AS lng, z.radius_m, z.surcharge, z.applies_to, z.active FROM tariff_zones z JOIN cities c ON c.id=z.city_id ORDER BY c.code, z.name").query().listOfRows();
+    }
+
+    @PostMapping("/pricing/zones") @ResponseStatus(HttpStatus.CREATED) @PreAuthorize(FIN) @Transactional
+    public Map<String, Object> createTariffZone(@Valid @RequestBody TariffZoneRequest r) {
+        UUID id = jdbc.sql("INSERT INTO tariff_zones(city_id,name,center,radius_m,surcharge,applies_to,active) VALUES (:c,:n,ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography,:r,:s,:a,:act) RETURNING id")
+                .param("c", cityId(r.city())).param("n", r.name().trim()).param("lng", r.lng()).param("lat", r.lat()).param("r", r.radiusM()).param("s", Money.scale(r.surcharge())).param("a", r.appliesTo()).param("act", r.active()).query(UUID.class).single();
+        audit.log(Auth.id(), role(), "TARIFF_ZONE_CREATED", "tariff_zone", id, Map.of("after", r.toString()));
+        return Map.of("id", id);
+    }
+
+    @PutMapping("/pricing/zones/{id}") @PreAuthorize(FIN) @Transactional
+    public Map<String, Object> updateTariffZone(@PathVariable UUID id, @Valid @RequestBody TariffZoneRequest r) {
+        int n = jdbc.sql("UPDATE tariff_zones SET city_id=:c, name=:n, center=ST_SetSRID(ST_MakePoint(:lng,:lat),4326)::geography, radius_m=:r, surcharge=:s, applies_to=:a, active=:act, updated_at=now() WHERE id=:id")
+                .param("c", cityId(r.city())).param("n", r.name().trim()).param("lng", r.lng()).param("lat", r.lat()).param("r", r.radiusM()).param("s", Money.scale(r.surcharge())).param("a", r.appliesTo()).param("act", r.active()).param("id", id).update();
+        if (n == 0) throw ApiException.notFound("tariff_zone_not_found", "Tariff zone not found");
+        audit.log(Auth.id(), role(), "TARIFF_ZONE_UPDATED", "tariff_zone", id, Map.of("after", r.toString()));
+        return Map.of("id", id);
+    }
+
+    @DeleteMapping("/pricing/zones/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @PreAuthorize(FIN) @Transactional
+    public void deleteTariffZone(@PathVariable UUID id) {
+        if (jdbc.sql("DELETE FROM tariff_zones WHERE id=:id").param("id", id).update() == 0) throw ApiException.notFound("tariff_zone_not_found", "Tariff zone not found");
+        audit.log(Auth.id(), role(), "TARIFF_ZONE_DELETED", "tariff_zone", id, Map.of());
+    }
+
     // ---------------- promo codes ----------------
     public record PromoRequest(@NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{3,30}") String code, @Size(max = 200) String description,
                                @NotBlank @Pattern(regexp = "PERCENT|FIXED") String kind, @NotNull @DecimalMin("0.01") @DecimalMax("1000000") BigDecimal value,

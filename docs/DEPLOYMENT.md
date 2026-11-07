@@ -31,6 +31,7 @@ Nothing below spends money or changes fares until the owner configures it in the
 | Referral programme | Admin → Settings: `referral.enabled`, `referral.referrer_bonus`, `referral.referee_bonus`, `referral.min_fare`, `referral.max_rewards_per_referrer` | `false` | When on, both sides get a wallet bonus after the invited customer's first paid ride; paid from the `PROMO` account |
 | Promo codes | Admin → Promo codes | none exist | Platform-funded discount; every discount appears as a negative `PROMO` balance |
 | Peak-hour windows | Admin → Pricing → Peak-hour windows | none exist | Fare multiplier by weekday and city-local time; locked per ride at request time |
+| Tariff zones (surcharges) | Admin → Pricing → Tariff zones | none exist | Flat fee for trips starting/ending inside a circle (e.g. the airport); locked per ride at request time |
 | Trip-link grace | Admin → Settings: `safety.share_grace_minutes` | `60` | How long a shared-trip link keeps showing the final status |
 | Staff MFA enforcement | Admin → Settings: `security.staff_mfa_required` | `false` | Forces MFA enrolment for super/finance admins |
 
