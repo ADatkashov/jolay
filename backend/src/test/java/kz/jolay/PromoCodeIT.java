@@ -185,4 +185,16 @@ class PromoCodeIT extends IntegrationTestBase {
         assertFalse(get("/api/v1/admin/promos", fin.token()).body().get(0).path("active").asBoolean());
         assertEquals(2, jdbc.sql("SELECT count(*) FROM audit_logs WHERE action LIKE 'PROMO_%'").query(Integer.class).single());
     }
+
+    @Test
+    void guessingPromoCodesIsStoppedAfterTenUnknownOnes() {
+        promo("REAL", "FIXED", "100", null, "0", null, 5, false, true, null);
+        Session guesser = customer(); Session other = customer(); driver("ECONOMY", 43.2340, 76.9570);
+        for (int i = 0; i < 10; i++) assertEquals("promo_not_found", post("/api/v1/rides/estimate", guesser.token(), estimateBody("GUESS" + i)).s("code"));
+        Resp blocked = post("/api/v1/rides/estimate", guesser.token(), estimateBody("REAL"));
+        assertEquals(429, blocked.status(), "even the right code is refused once the guesser has used up their attempts");
+        assertEquals("promo_attempts_exceeded", blocked.s("code"));
+        assertEquals(200, post("/api/v1/rides/estimate", other.token(), estimateBody("REAL")).status(), "other riders are not affected");
+        assertEquals(200, post("/api/v1/rides/estimate", other.token(), estimateBody(null)).status());
+    }
 }

@@ -1,0 +1,33 @@
+# Weekly dependency update proposals (security fixes arrive as pull requests; CI decides whether they are safe to merge).
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /backend
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /apps/admin-web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /apps/partner-web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: pub
+    directory: /apps/customer-app
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: pub
+    directory: /apps/driver-app
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: pub
+    directory: /shared/jolay_core
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: { interval: weekly }

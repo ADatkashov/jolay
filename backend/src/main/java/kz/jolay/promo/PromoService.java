@@ -29,13 +29,39 @@ public class PromoService {
     private final JdbcClient jdbc;
     public PromoService(JdbcClient jdbc) { this.jdbc = jdbc; }
 
+    /**
+     * Promo codes are often short human words, so a signed-in user could guess them (WELCOME, SUMMER25 ...). After {@value #MAX_MISSES} unknown codes within
+     * {@value #WINDOW_MINUTES} minutes the user is refused further attempts until the window passes. Kept in memory per instance, like the API rate limiter;
+     * only unknown codes count (a known but unusable code reveals nothing the rider could not learn by being refused).
+     */
+    static final int MAX_MISSES = 10, WINDOW_MINUTES = 10;
+    private final java.util.concurrent.ConcurrentHashMap<UUID, java.util.ArrayDeque<Long>> misses = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private void guardGuessing(UUID userId) {
+        long cutoff = System.currentTimeMillis() - WINDOW_MINUTES * 60_000L;
+        var q = misses.get(userId);
+        if (q == null) return;
+        synchronized (q) {
+            while (!q.isEmpty() && q.peekFirst() < cutoff) q.pollFirst();
+            if (q.size() >= MAX_MISSES) throw ApiException.tooMany("promo_attempts_exceeded", "Too many unknown promo codes. Try again in a few minutes");
+        }
+        if (q.isEmpty()) misses.remove(userId, q);
+    }
+
+    private void recordMiss(UUID userId) {
+        if (misses.size() > 50_000) misses.clear();          // memory bound: forgetting old strikes is harmless
+        var q = misses.computeIfAbsent(userId, k -> new java.util.ArrayDeque<>());
+        synchronized (q) { q.addLast(System.currentTimeMillis()); }
+    }
+
     public static String normalize(String code) { return code == null ? null : code.trim().toUpperCase(); }
 
     /** Checks everything about the code and the rider that does not depend on the fare. {@code lock} serialises redemptions of the same code. */
     public Promo check(String rawCode, UUID userId, boolean lock) {
         String code = normalize(rawCode);
+        guardGuessing(userId);
         var row = jdbc.sql("SELECT * FROM promo_codes WHERE code=:c" + (lock ? " FOR UPDATE" : "")).param("c", code).query().listOfRows().stream().findFirst()
-                .orElseThrow(() -> ApiException.badRequest("promo_not_found", "This promo code does not exist"));
+                .orElseThrow(() -> { recordMiss(userId); return ApiException.badRequest("promo_not_found", "This promo code does not exist"); });
         UUID id = (UUID) row.get("id");
         if (!Boolean.TRUE.equals(row.get("active"))) throw ApiException.badRequest("promo_inactive", "This promo code is not active");
         boolean outOfWindow = jdbc.sql("SELECT (:s::timestamptz IS NOT NULL AND now() < :s::timestamptz) OR (:e::timestamptz IS NOT NULL AND now() >= :e::timestamptz)")
