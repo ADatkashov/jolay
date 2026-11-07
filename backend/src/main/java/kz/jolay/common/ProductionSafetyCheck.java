@@ -10,12 +10,13 @@ import jakarta.annotation.PostConstruct;
 @Component
 @Profile("prod")
 public class ProductionSafetyCheck {
-    private final String jwtSecret, paymentProvider;
+    private final String jwtSecret, paymentProvider, publicBaseUrl;
     private final boolean logCode, allowSandbox;
 
     public ProductionSafetyCheck(@Value("${jolay.security.jwt-secret}") String jwtSecret, @Value("${jolay.payments.provider}") String paymentProvider,
-                                 @Value("${jolay.sms.log-code:false}") boolean logCode, @Value("${JOLAY_ALLOW_SANDBOX_PAYMENTS:false}") boolean allowSandbox) {
-        this.jwtSecret = jwtSecret; this.paymentProvider = paymentProvider; this.logCode = logCode; this.allowSandbox = allowSandbox;
+                                 @Value("${jolay.sms.log-code:false}") boolean logCode, @Value("${JOLAY_ALLOW_SANDBOX_PAYMENTS:false}") boolean allowSandbox,
+                                 @Value("${jolay.payments.public-base-url}") String publicBaseUrl) {
+        this.jwtSecret = jwtSecret; this.paymentProvider = paymentProvider; this.logCode = logCode; this.allowSandbox = allowSandbox; this.publicBaseUrl = publicBaseUrl;
     }
 
     @PostConstruct
@@ -25,5 +26,8 @@ public class ProductionSafetyCheck {
         if ("sandbox".equals(paymentProvider) && !allowSandbox)
             throw new IllegalStateException("prod profile: the sandbox payment gateway would let anyone mark payments as paid. Configure a real provider "
                     + "(or set JOLAY_ALLOW_SANDBOX_PAYMENTS=true for a closed internal demo only)");
+        // The trip-sharing links texted to emergency contacts are built from this address: a development default would send people to localhost.
+        if (!allowSandbox && !publicBaseUrl.startsWith("https://"))
+            throw new IllegalStateException("prod profile: JOLAY_PUBLIC_URL must be the public https:// address of the API (it is used in links sent by SMS)");
     }
 }

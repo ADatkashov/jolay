@@ -22,6 +22,7 @@ spec:
             - { name: JOLAY_DB_URL, value: "jdbc:postgresql://postgres:5432/jolay" }
             - { name: JOLAY_DB_USER, value: jolay }
             - { name: JOLAY_CORS_ORIGINS, value: "https://admin.example.kz" }
+            - { name: JOLAY_PUBLIC_URL, value: "https://api.example.kz" }   # public https address of the API; used in links sent by SMS (startup is refused without it)
           resources: { requests: { cpu: 500m, memory: 768Mi }, limits: { memory: 1536Mi } }
           readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 8081 }, periodSeconds: 5 }   # prod: actuator is on the private management port
           livenessProbe: { httpGet: { path: /actuator/health/liveness, port: 8081 }, initialDelaySeconds: 30, periodSeconds: 10 }

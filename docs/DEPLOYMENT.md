@@ -13,7 +13,7 @@ Compose is a **development** stack (dev OTP logging, default ports). For product
 
 ## Management port (prod)
 In the `prod` profile Actuator (`/actuator/health/*`, `/actuator/prometheus`) is served on `JOLAY_MGMT_PORT` (default **8081**) and is not reachable on 8080. Do not expose 8081 through the ingress; probes and Prometheus use it. Dev/compose runs without the profile (health on 8080, metrics need a SUPER_ADMIN token).
-Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, DB credentials, `JOLAY_CORS_ORIGINS`, a real payment provider (or `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` for an internal demo only).
+Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, `JOLAY_PUBLIC_URL` (public https:// address of the API; startup is refused otherwise), DB credentials, `JOLAY_CORS_ORIGINS`, a real payment provider (or `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` for an internal demo only).
 
 ## Kubernetes
 `infrastructure/kubernetes/backend.yaml` (Deployment, Service, probes, non-root, resource limits). Secrets are created with `kubectl create secret generic jolay-secrets ...` (see file header).
@@ -22,6 +22,20 @@ Prometheus scrape config: `infrastructure/monitoring/prometheus.yml`; metrics at
 
 ## CI (GitHub Actions: `.github/workflows/ci.yml`)
 Backend tests against a PostGIS service container, admin build+tests, Flutter analyze+test for both apps, backend Docker build. First GitHub run: backend tests (PostGIS service), admin build/tests and the backend Docker build passed; the Flutter jobs failed on `flutter analyze` info-level findings, now fixed. See docs/CTO_FINAL_AUDIT.md.
+
+## Business switches to review before the pilot (all OFF / empty by default)
+Nothing below spends money or changes fares until the owner configures it in the admin console.
+
+| Switch | Where | Default | Effect |
+|---|---|---|---|
+| Referral programme | Admin → Settings: `referral.enabled`, `referral.referrer_bonus`, `referral.referee_bonus`, `referral.min_fare`, `referral.max_rewards_per_referrer` | `false` | When on, both sides get a wallet bonus after the invited customer's first paid ride; paid from the `PROMO` account |
+| Promo codes | Admin → Promo codes | none exist | Platform-funded discount; every discount appears as a negative `PROMO` balance |
+| Peak-hour windows | Admin → Pricing → Peak-hour windows | none exist | Fare multiplier by weekday and city-local time; locked per ride at request time |
+| Trip-link grace | Admin → Settings: `safety.share_grace_minutes` | `60` | How long a shared-trip link keeps showing the final status |
+| Staff MFA enforcement | Admin → Settings: `security.staff_mfa_required` | `false` | Forces MFA enrolment for super/finance admins |
+
+Watch the `PROMO` account (`SELECT balance FROM accounts WHERE type='PROMO'`): its negative balance is the total promo and referral spend. `SELECT sum(balance) FROM accounts` must stay 0.
+The trip-sharing viewer page and the public JSON live under `/api/v1/catalog/` (no authentication); make sure the ingress forwards that prefix and that `JOLAY_PUBLIC_URL` is the public HTTPS address, because it is used to build the links sent in SMS.
 
 ## Backups & disaster recovery (plan, not exercised)
 Nightly `pg_dump -Fc` shipped off-site + WAL archiving for PITR; RPO ≤ 5 min / RTO ≤ 1 h are *targets*, not verified. Money tables (`ledger_*`, `payment_*`) must be included in every backup and are append-only.
