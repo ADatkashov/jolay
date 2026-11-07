@@ -29,6 +29,12 @@ springdoc:
   swagger-ui.path: /api/v1/swagger-ui
 
 jolay:
+  routing:
+    # Base URL of an OSRM server (e.g. http://osrm:5000). Empty = development estimate (great-circle x detour factor, flagged ESTIMATED).
+    osrm-url: ${JOLAY_OSRM_URL:}
+    timeout-ms: 2000
+    failures-to-open: 3
+    open-seconds: 30
   security:
     # MUST be overridden in every non-local environment (>= 32 bytes). See docs/SECURITY.md.
     jwt-secret: ${JOLAY_JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}

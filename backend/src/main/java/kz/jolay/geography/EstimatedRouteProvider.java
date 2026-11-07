@@ -2,11 +2,7 @@ package kz.jolay.geography;
 
 import kz.jolay.common.AppSettings;
 import kz.jolay.common.GeoPoint;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.stereotype.Component;
-
-@Component
-@ConditionalOnMissingBean(name = "externalRouteProvider")
+/** Development fallback (and the safety net of {@link OsrmRouteProvider}); wired by {@link RoutingConfig}. */
 public class EstimatedRouteProvider implements RouteProvider {
     private final AppSettings settings;
     public EstimatedRouteProvider(AppSettings settings) { this.settings = settings; }
