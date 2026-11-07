@@ -38,7 +38,7 @@ class SignUpScreen extends ConsumerStatefulWidget {
 
 class _SignUpState extends ConsumerState<SignUpScreen> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController(), _email = TextEditingController(), _phone = TextEditingController(text: '+7 '), _pw = TextEditingController(), _pw2 = TextEditingController();
+  final _name = TextEditingController(), _email = TextEditingController(), _phone = TextEditingController(text: '+7 '), _pw = TextEditingController(), _pw2 = TextEditingController(), _ref = TextEditingController();
   bool _terms = false, _busy = false, _showTermsError = false, _obscure = true;
 
   Future<void> _submit() async {
@@ -47,7 +47,7 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
     setState(() => _busy = true);
     try {
       final phone = Validators.normalizePhone(_phone.text);
-      await ref.read(authProvider.notifier).register(fullName: _name.text.trim(), phone: phone, email: _email.text.trim(), password: _pw.text, locale: ref.read(localeProvider).languageCode);
+      await ref.read(authProvider.notifier).register(fullName: _name.text.trim(), phone: phone, email: _email.text.trim(), password: _pw.text, locale: ref.read(localeProvider).languageCode, referralCode: _ref.text.trim());
       if (mounted) context.push('/otp', extra: phone);
     } catch (e) { if (mounted) showError(context, ref, e); } finally { if (mounted) setState(() => _busy = false); }
   }
@@ -65,6 +65,8 @@ class _SignUpState extends ConsumerState<SignUpScreen> {
               suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscure = !_obscure))), validator: v(ref, Validators.password)),
           const SizedBox(height: 14),
           TextFormField(key: const Key('signup-confirm'), controller: _pw2, obscureText: _obscure, decoration: InputDecoration(labelText: ref.t('auth.confirm')), validator: v(ref, (s) => Validators.confirm(s, _pw.text))),
+          const SizedBox(height: 14),
+          TextFormField(key: const Key('signup-referral'), controller: _ref, textCapitalization: TextCapitalization.characters, decoration: InputDecoration(labelText: ref.t('referral.have'))),
           const SizedBox(height: 8),
           CheckboxListTile(key: const Key('signup-terms'), value: _terms, onChanged: (x) => setState(() => _terms = x ?? false), controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
               title: Text(ref.t('auth.terms'), style: const TextStyle(fontSize: 13)), activeColor: JolayColors.midnight),
