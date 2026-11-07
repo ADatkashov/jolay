@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jolay_core/jolay_core.dart';
@@ -178,6 +179,23 @@ void legalAndSosTests() {
     await t.pump(); await t.pump();
     expect(find.text('Текст политики'), findsOneWidget);
     expect(find.text('Версия 3'), findsOneWidget);
+  });
+
+  testWidgets('sharing a trip creates a link and copies it to the clipboard', (t) async {
+    tallScreen(t);
+    String? copied;
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    final api = FakeApi({'GET /rides/r1': rideJson(status: 'DRIVER_ARRIVING', paymentStatus: 'NONE'), 'POST /rides/r1/share': {'token': 'abc', 'url': 'https://api.jolay.kz/api/v1/catalog/trip/abc'}});
+    await t.pumpWidget(app(const RideTrackScreen(rideId: 'r1'), api: api, overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.pump(); await t.pump();
+    await t.tap(find.byKey(const Key('share-trip')));
+    await t.pump(const Duration(milliseconds: 400));
+    expect(copied, 'https://api.jolay.kz/api/v1/catalog/trip/abc');
+    expect(find.text('Link copied — send it to someone you trust'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
   });
 
   testWidgets('SOS during a ride notifies JOLAY support with the position and does not claim anything else', (t) async {
