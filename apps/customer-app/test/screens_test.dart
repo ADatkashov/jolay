@@ -12,6 +12,16 @@ import 'helpers.dart';
 
 void main() {
   legalAndSosTests();
+  testWidgets('country picker rewrites the dial code of the phone field', (t) async {
+    await t.pumpWidget(app(const SignUpScreen(), api: FakeApi({}), overrides: [localeProvider.overrideWith(() => _En())]));
+    await t.enterText(find.byKey(const Key('signup-phone')), '+7 701 222 33 44');
+    await t.tap(find.byKey(const Key('country-picker')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('country-Kyrgyzstan')));
+    await t.pumpAndSettle();
+    expect(find.text('+996 701 222 33 44'), findsOneWidget);
+  });
+
   testWidgets('login validates input locally and does not call the API', (t) async {
     final api = FakeApi({});
     await t.pumpWidget(app(const LoginScreen(), api: api));

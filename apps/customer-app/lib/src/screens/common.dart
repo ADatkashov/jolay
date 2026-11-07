@@ -41,3 +41,62 @@ class LanguageSwitcher extends ConsumerWidget {
     ]);
   }
 }
+
+/// Countries offered in the phone-prefix picker: dial code and names (kk, ru, en).
+const _countries = <(String, String, String, String)>[
+  ('+7', 'Қазақстан', 'Казахстан', 'Kazakhstan'),
+  ('+7', 'Ресей', 'Россия', 'Russia'),
+  ('+996', 'Қырғызстан', 'Кыргызстан', 'Kyrgyzstan'),
+  ('+998', 'Өзбекстан', 'Узбекистан', 'Uzbekistan'),
+  ('+375', 'Беларусь', 'Беларусь', 'Belarus'),
+  ('+992', 'Тәжікстан', 'Таджикистан', 'Tajikistan'),
+  ('+994', 'Әзірбайжан', 'Азербайджан', 'Azerbaijan'),
+  ('+374', 'Армения', 'Армения', 'Armenia'),
+];
+
+/// Replaces the leading dial code of [text] (e.g. "+7 701 …") with [code], keeping the rest.
+String withDialCode(String text, String code) {
+  final rest = text.trim().replaceFirst(RegExp(r'^\+?\d{1,3}'), '').trim();
+  return '$code ${rest.startsWith('-') ? rest.substring(1) : rest}'.trimRight() + (rest.isEmpty ? ' ' : '');
+}
+
+/// Phone field with a country picker (bottom sheet) that rewrites the dial-code prefix.
+class PhoneField extends ConsumerWidget {
+  final TextEditingController controller;
+  final Key? fieldKey;
+  const PhoneField({super.key, required this.controller, this.fieldKey});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = ref.watch(localeProvider).languageCode;
+    String name((String, String, String, String) c) => l == 'kk' ? c.$2 : l == 'ru' ? c.$3 : c.$4;
+    return TextFormField(
+      key: fieldKey,
+      controller: controller,
+      keyboardType: TextInputType.phone,
+      decoration: InputDecoration(
+        labelText: ref.t('auth.phone'),
+        suffixIcon: IconButton(
+          key: const Key('country-picker'),
+          icon: const Icon(Icons.public),
+          onPressed: () async {
+            final picked = await showModalBottomSheet<(String, String, String, String)>(
+              context: context,
+              builder: (_) => SafeArea(
+                child: ListView(shrinkWrap: true, children: [
+                  for (final c in _countries)
+                    ListTile(key: Key('country-${c.$4}'), title: Text(name(c)), trailing: Text(c.$1), onTap: () => Navigator.pop(context, c)),
+                ]),
+              ),
+            );
+            if (picked != null) {
+              controller.text = withDialCode(controller.text, picked.$1);
+              controller.selection = TextSelection.collapsed(offset: controller.text.length);
+            }
+          },
+        ),
+      ),
+      validator: v(ref, Validators.phone),
+    );
+  }
+}
