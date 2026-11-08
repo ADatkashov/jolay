@@ -7,11 +7,10 @@ import 'package:latlong2/latlong.dart';
 import '../data/models.dart';
 import 'common.dart';
 
-/// Tile source is configurable (--dart-define=TILE_URL=...). The default OpenStreetMap server is for DEVELOPMENT only;
-/// production must use a licensed provider (Mapbox / 2GIS / Google) — see docs/ARCHITECTURE.md.
+/// Map tiles are 2GIS, fetched through the JOLAY backend (the 2GIS key stays on the server). Override with --dart-define=TILE_URL=... if needed.
 const tileUrl = String.fromEnvironment(
   'TILE_URL',
-  defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  defaultValue: '${ApiConfig.baseUrl}/api/v1/geo/tiles/{z}/{x}/{y}.png',
 );
 
 Marker pin(LatLng p, Widget child, {double size = 44}) =>
@@ -97,7 +96,7 @@ class JolayMap extends StatelessWidget {
         const RichAttributionWidget(
           alignment: AttributionAlignment.bottomLeft,
           attributions: [
-            TextSourceAttribution('© OpenStreetMap contributors (dev tiles)'),
+            TextSourceAttribution('© 2GIS'),
           ],
         ),
       ],

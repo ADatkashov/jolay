@@ -7,13 +7,13 @@ import { errText, Status, useApi } from "./hooks";
 
 type Row = Record<string, any>;
 
-/** Click on the map to set the store location (public OSM tiles — development only). */
+/** Click on the map to set the store location (2GIS tiles through the JOLAY backend). */
 function PointPicker({ value, onChange }: { value: [number, number]; onChange: (p: [number, number]) => void }) {
   const el = useRef<HTMLDivElement>(null); const marker = useRef<L.Marker | null>(null); const map = useRef<L.Map | null>(null);
   useEffect(() => {
     if (!el.current || map.current) return;
     map.current = L.map(el.current).setView(value, 14);
-    L.tileLayer(import.meta.env.VITE_TILE_URL ?? "https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors (dev tiles)", maxZoom: 19 }).addTo(map.current);
+    L.tileLayer(import.meta.env.VITE_TILE_URL ?? "/api/v1/geo/tiles/{z}/{x}/{y}.png", { attribution: "© 2GIS", maxZoom: 19 }).addTo(map.current);
     marker.current = L.marker(value).addTo(map.current);
     map.current.on("click", (e: L.LeafletMouseEvent) => { marker.current?.setLatLng(e.latlng); onChange([e.latlng.lat, e.latlng.lng]); });
     return () => { map.current?.remove(); map.current = null; };

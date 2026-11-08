@@ -23,30 +23,21 @@ Prometheus scrape config: `infrastructure/monitoring/prometheus.yml`; metrics at
 ## CI (GitHub Actions: `.github/workflows/ci.yml`)
 Backend tests against a PostGIS service container, admin build+tests, Flutter analyze+test for both apps, backend Docker build. First GitHub run: backend tests (PostGIS service), admin build/tests and the backend Docker build passed; the Flutter jobs failed on `flutter analyze` info-level findings, now fixed. See docs/CTO_FINAL_AUDIT.md.
 
-## Road routing (optional, recommended before the pilot)
-Without configuration every route is a great-circle estimate (`routeSource=ESTIMATED`, clients show "estimated route"). Setting `JOLAY_OSRM_URL` (for example `http://osrm:5000`) makes the backend ask an [OSRM](https://project-osrm.org) server for real road distance and duration (`routeSource=OSRM`), which makes fares and ETAs much closer to reality. OSRM is open source and runs on OpenStreetMap data, so no map licence is needed for routing (tiles and geocoding are separate questions, see STATUS.md → Mocks).
+## Maps, address search and routing: 2GIS (single provider)
+Everything map-related uses **2GIS**; OpenStreetMap, Nominatim and OSRM are not used. Set one secret on the backend: **`JOLAY_2GIS_KEY`** (a key from the 2GIS Platform Manager with the Places/Suggest, Geocoder, Routing and Raster Tiles services enabled; the free demo key lasts one month and is limited to 1,000 requests per service, so production needs a purchased key). Optional: `JOLAY_2GIS_REGION_ID` if Suggest asks for a geographic restriction.
 
-Behaviour: 2 s timeout (`jolay.routing.timeout-ms`); on any error, timeout, or "no route" the estimate is used for that request, so riders can always order; after 3 consecutive failures OSRM is skipped for 30 s (`failures-to-open`, `open-seconds`); outcomes are counted in the metric `jolay.routing.osrm{outcome=ok|no_route|error|skipped}` — alert on a rising `error`/`skipped`.
+| Feature | 2GIS service | Endpoint in this backend |
+|---|---|---|
+| Address search | Suggest `/3.0/suggests` | `GET /api/v1/geo/places` |
+| Address of a point (pickup, map picker) | `/3.0/items/geocode` | `GET /api/v1/geo/reverse` |
+| Route distance / ETA, fare estimate | Routing `/routing/7.0.0/global` | used internally (`routeSource=2GIS`) |
+| Map tiles for all apps | Raster Tiles `tile{n}.maps.2gis.com/v2/tiles/{tileset}/{z}/{x}/{y}.png` | `GET /api/v1/geo/tiles/{z}/{x}/{y}.png` (public, cached 1 day, in-memory LRU of `jolay.maps.cache-tiles` tiles) |
 
-Suggested self-hosting recipe (**not exercised in this repository's CI — verify it on a staging server first**), following the OSRM project's documented Docker workflow with the Geofabrik extract for Kazakhstan:
-```
-wget https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf -P data/
-docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/kazakhstan-latest.osm.pbf
-docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/kazakhstan-latest.osrm
-docker run -t -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/kazakhstan-latest.osrm
-docker run -d -p 5000:5000 -v "$PWD/data:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/kazakhstan-latest.osrm
-```
-Keep the OSRM port private (only the backend needs it). Check a known pair before switching traffic: `curl "http://localhost:5000/route/v1/driving/76.9567,43.2335;76.9066,43.2025?overview=false"` must return `"code":"Ok"` with a plausible `distance` in metres. Refresh the extract periodically. Respect OpenStreetMap's attribution requirement (visible "© OpenStreetMap contributors" wherever OSM data is shown).
+The apps never see the key: the customer and driver apps and the admin/partner sites load tiles from the backend (`--dart-define=TILE_URL=...` / `VITE_TILE_URL` only override that). Tile quota is billed per tile, so keep an eye on usage; put a CDN in front of `/api/v1/geo/tiles` if traffic grows.
 
-## Address search and reverse geocoding (optional)
-**2GIS (preferred).** Set the secret `JOLAY_2GIS_KEY` (a Places API key from the 2GIS Platform Manager; the free demo key lasts one month and is limited to 1,000 requests per service, so production needs a purchased key). The backend then uses 2GIS Suggest (`/3.0/suggests`) for `GET /api/v1/geo/places` and `/3.0/items/geocode` for `GET /api/v1/geo/reverse`; it takes precedence over Nominatim. Optional `JOLAY_2GIS_REGION_ID` if Suggest demands a geographic restriction. Same fallback behaviour as below (1.5 s timeout, seeded places on failure, circuit breaker); outcomes are counted in `jolay.geocoding.twogis{outcome=ok|error|skipped}`. The reverse endpoint and the exact response shape were written from the public docs and are **not yet verified against a live key: test on staging**. Check 2GIS terms on storing results and on showing them without a 2GIS map before launch.
+Behaviour without a key: address search only knows the 12 seeded Almaty landmarks, a pickup without an address is labelled with its coordinates, every route is a great-circle estimate (`routeSource=ESTIMATED`) and the tile endpoint answers 503 (blank map). With a key, any 2GIS error, timeout or malformed answer falls back to the seeded places / the estimate for that request, so ordering never stops; 3 consecutive failures pause the service for 30 s (tiles: 5 failures, 20 s). Outcomes are counted in `jolay.geocoding.twogis`, `jolay.routing.twogis` and `jolay.maps.tiles` (`outcome=ok|error|skipped|...`).
 
-**Nominatim (alternative).**
-Without configuration, address search only knows the 12 seeded Almaty landmarks and a pickup without an address is labelled with its coordinates. Setting `JOLAY_NOMINATIM_URL` (for example `http://nominatim:8080`) makes the backend use a [Nominatim](https://nominatim.org) server for `GET /api/v1/geo/places` and `GET /api/v1/geo/reverse` (and for the address stored on a ride when the app sends none). The UI language (`Accept-Language`: kk/ru/en) is forwarded; results are restricted to `country-codes` (default `kz`) and ranked towards the rider's position without excluding other places.
-
-**Run your own instance.** The public nominatim.openstreetmap.org service forbids heavy use and autocomplete (see its usage policy); this adapter sends an identifying `User-Agent` (`jolay.geocoding.user-agent`) but is not meant for the public server. Nominatim needs a large PostgreSQL import of the OSM extract; a commonly used container is `mediagis/nominatim` with `PBF_URL=https://download.geofabrik.de/asia/kazakhstan-latest.osm.pbf` (**not exercised in this repository's CI — verify on staging**, including that Kazakh/Russian address quality is acceptable for your users; if it is not, a commercial geocoder behind the `ExternalGeocoder` interface is the alternative).
-
-Behaviour: 1.5 s timeout (`jolay.geocoding.timeout-ms`); an empty answer, error, timeout or malformed body falls back to the seeded places, so the app keeps working; 3 consecutive failures skip Nominatim for 30 s; outcomes are counted in `jolay.geocoding.nominatim{outcome=ok|error|skipped}`. Keep the Nominatim port private. Show "© OpenStreetMap contributors" wherever OSM-derived data is displayed.
+**Not yet verified against a live key:** the reverse-geocode endpoint and exact `point` shape, `region_id` behaviour, the max zoom and tile size of `online_hd`, and 2GIS terms on storing results, using raster tiles outside their SDK, and attribution (the apps show "© 2GIS"). Raster Tiles in third-party libraries (flutter_map, Leaflet) are, per the 2GIS docs, not guaranteed compatible: check with `api@2gis.com` before launch.
 
 ## Business switches to review before the pilot (all OFF / empty by default)
 Nothing below spends money or changes fares until the owner configures it in the admin console.

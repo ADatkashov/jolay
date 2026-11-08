@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/payments/webhooks/**").permitAll()   // authenticated by signature
                 .requestMatchers("/api/v1/catalog/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/geo/tiles/**").permitAll()   // map tiles: a map widget cannot send a bearer token per tile
                 .requestMatchers("/actuator/health/**").permitAll()      // metrics only on the private management port (prod) or for SUPER_ADMIN
                 .requestMatchers("/api/v1/docs/**", "/api/v1/swagger-ui/**", "/api/v1/swagger-ui.html").permitAll()
                 .requestMatchers("/ws").permitAll()                              // token validated in the handshake

@@ -21,7 +21,7 @@ async function load(){
     if(t.driverName)out.append(row('Driver',t.driverName+' · '+t.vehicle.color+' '+t.vehicle.brand+' '+t.vehicle.model+' · '+t.vehicle.plate));
     if(t.driverLocation){
       const a=document.createElement('a');const {lat,lng}=t.driverLocation;
-      a.href='https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lng+'#map=16/'+lat+'/'+lng;a.target='_blank';a.rel='noopener';a.textContent='Open driver position on the map';
+      a.href='https://2gis.kz/almaty?m='+encodeURIComponent(lng+','+lat)+'/16';a.target='_blank';a.rel='noopener';a.textContent='Open driver position on the map';
       const d=document.createElement('div');d.style.marginTop='12px';d.append(a);out.append(d);
     }
     if(!t.active){clearInterval(timer);}

@@ -2,7 +2,7 @@ package kz.jolay.geography;
 
 import kz.jolay.common.AppSettings;
 import kz.jolay.common.GeoPoint;
-/** Development fallback (and the safety net of {@link OsrmRouteProvider}); wired by {@link RoutingConfig}. */
+/** Development fallback (and the safety net of {@link TwoGisRouteProvider}); wired by {@link RoutingConfig}. */
 public class EstimatedRouteProvider implements RouteProvider {
     private final AppSettings settings;
     public EstimatedRouteProvider(AppSettings settings) { this.settings = settings; }
