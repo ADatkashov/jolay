@@ -42,7 +42,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (status == AuthStatus.unknown) {
         return loc == '/splash' ? null : '/splash';
       }
-      if (status == AuthStatus.signedOut && !publicPaths.contains(loc)) {
+      // '/splash' is in publicPaths, but once the session check says "signed out" the splash must be left too,
+      // otherwise a fresh install stays on the splash forever.
+      if (status == AuthStatus.signedOut &&
+          (loc == '/splash' || !publicPaths.contains(loc))) {
         return '/welcome';
       }
       if (status == AuthStatus.signedIn &&
