@@ -112,13 +112,18 @@ jobs:
         env:
           API_URL: ${{ inputs.api_base_url }}
         run: |
-          flutter build apk --release --dart-define=JOLAY_API="$API_URL"
-          flutter build appbundle --release --dart-define=JOLAY_API="$API_URL"
+          # The Android SDK/NDK downloads on the runner occasionally arrive corrupted
+          # ("Error on ZipFile unknown archive"); a retry fixes it.
+          retry() { for i in 1 2 3; do "$@" && return 0; echo "::warning::attempt $i failed, retrying"; sleep 15; done; return 1; }
+          retry flutter build apk --release --dart-define=JOLAY_API="$API_URL"
+          retry flutter build appbundle --release --dart-define=JOLAY_API="$API_URL"
 
       - name: Verify the APK is signed with the release key
         run: |
           apk="apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk"
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          # The runner has several build-tools versions installed: use the newest one.
+          bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$bt/apksigner" verify --print-certs "$apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
 
       - name: Name the outputs
         run: |
