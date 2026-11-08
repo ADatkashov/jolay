@@ -9,12 +9,16 @@ import 'src/data/providers.dart';
 import 'src/demo/demo_api.dart';
 
 void main() {
-  runApp(ProviderScope(
-    overrides: [
-      requiredRoleProvider.overrideWithValue('CUSTOMER'),
-      apiProvider.overrideWithValue(DemoApi()),
-      realtimeEventsProvider.overrideWith((ref) => const Stream<RealtimeEvent>.empty()),
-    ],
-    child: const JolayCustomerApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [
+        requiredRoleProvider.overrideWithValue('CUSTOMER'),
+        apiProvider.overrideWithValue(DemoApi()),
+        realtimeEventsProvider.overrideWith(
+          (ref) => const Stream<RealtimeEvent>.empty(),
+        ),
+      ],
+      child: const JolayCustomerApp(),
+    ),
+  );
 }

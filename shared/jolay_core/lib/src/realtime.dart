@@ -34,23 +34,44 @@ class RealtimeClient {
   Future<void> _connect() async {
     if (!_running) return;
     final t = await tokens.read();
-    if (t == null) { _schedule(); return; }
+    if (t == null) {
+      _schedule();
+      return;
+    }
     try {
-      final ch = WebSocketChannel.connect(Uri.parse('${ApiConfig.wsUrl}?token=${t.access}'));
+      final ch = WebSocketChannel.connect(
+        Uri.parse('${ApiConfig.wsUrl}?token=${t.access}'),
+      );
       _ch = ch;
       await ch.ready;
       _attempt = 0;
       _ctrl.add(RealtimeEvent('CONNECTED', const {}));
       _ping?.cancel();
-      _ping = Timer.periodic(const Duration(seconds: 25), (_) { try { ch.sink.add('ping'); } catch (_) {} });
-      ch.stream.listen((m) {
-        if (m is! String || m == 'pong') return;
+      _ping = Timer.periodic(const Duration(seconds: 25), (_) {
         try {
-          final j = jsonDecode(m) as Map<String, dynamic>;
-          _ctrl.add(RealtimeEvent(j['type'] as String, (j['data'] as Map?)?.cast<String, dynamic>() ?? {}));
+          ch.sink.add('ping');
         } catch (_) {}
-      }, onDone: _schedule, onError: (_) => _schedule(), cancelOnError: true);
-    } catch (_) { _schedule(); }
+      });
+      ch.stream.listen(
+        (m) {
+          if (m is! String || m == 'pong') return;
+          try {
+            final j = jsonDecode(m) as Map<String, dynamic>;
+            _ctrl.add(
+              RealtimeEvent(
+                j['type'] as String,
+                (j['data'] as Map?)?.cast<String, dynamic>() ?? {},
+              ),
+            );
+          } catch (_) {}
+        },
+        onDone: _schedule,
+        onError: (_) => _schedule(),
+        cancelOnError: true,
+      );
+    } catch (_) {
+      _schedule();
+    }
   }
 
   void _schedule() {

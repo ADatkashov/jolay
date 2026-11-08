@@ -9,7 +9,8 @@ String formatKzt(Object? v) {
 }
 
 /// Converts a UTC ISO timestamp to Asia/Almaty (UTC+5, no DST) for display.
-DateTime toAlmaty(String iso) => DateTime.parse(iso).toUtc().add(const Duration(hours: 5));
+DateTime toAlmaty(String iso) =>
+    DateTime.parse(iso).toUtc().add(const Duration(hours: 5));
 
 String formatDateTime(String? iso) {
   if (iso == null) return '—';

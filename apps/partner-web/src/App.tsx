@@ -22,7 +22,7 @@ export function Auth({ onDone }: { onDone: (s: Session) => void }) {
     else onDone(await verifyOtp(phone, code));
   }); };
   return <form className="login" onSubmit={submit}>
-    <div className="brand" style={{ color: "#171717", padding: 0 }}>JOLAY<span>.</span></div><p className="muted">Partner portal for restaurants and shops</p>
+    <div className="brand">JOLAY<span>.</span></div><p className="muted">Partner portal for restaurants and shops</p>
     {mode === "register" && <label>Business contact name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} /></label>}
     {mode !== "otp" && <><label>Phone<input value={phone} onChange={(e) => setPhone(e.target.value)} required autoComplete="username" /></label>
       <label>Password<input type="password" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={8} autoComplete="current-password" /></label></>}
@@ -41,13 +41,17 @@ export function Portal({ session, onLogout }: { session: Session; onLogout: () =
   if (me.error && /Register your business/.test(me.error)) return <Onboarding onDone={me.reload} onLogout={onLogout} />;
   const approved = me.data?.status === "APPROVED";
   const pages: Record<string, JSX.Element> = { orders: <Orders />, stores: <Stores approved={approved} />, reports: <Reports /> };
+  const items: [string, string][] = [["orders", "Orders"], ["stores", "Stores & menu"], ["reports", "Sales & wallet"]];
   return <div className="app">
-    <nav className="side"><div className="brand">JOLAY<span>.</span></div>
-      {[["orders", "Orders"], ["stores", "Stores & menu"], ["reports", "Sales & wallet"]].map(([k, l]) => <button key={k} className={k === page ? "active" : ""} onClick={() => setPage(k)}>{l}</button>)}
-      <div className="who">{me.data?.business_name ?? session.user.fullName}<br />{me.data?.status}<br /><button onClick={onLogout}>Sign out</button></div></nav>
-    <main>{me.data && !approved && <p className={`pill ${me.data.status === "PENDING" ? "warn" : "bad"}`} role="status" style={{ marginBottom: 16 }}>
-      {me.data.status === "PENDING" ? "Your business is being reviewed by JOLAY. You will be able to open stores once it is approved." : `Your business is ${me.data.status}${me.data.review_note ? `: ${me.data.review_note}` : ""}`}</p>}
-      {pages[page]}</main></div>;
+    <a className="skip" href="#main">Skip to content</a>
+    <nav className="side" aria-label="Main"><div className="brand">JOLAY<span>.</span></div><div className="brand-sub">Partner portal</div>
+      {items.map(([k, l]) => <button key={k} aria-current={k === page ? "page" : undefined} onClick={() => setPage(k)}>{l}</button>)}
+      <div className="who"><b>{me.data?.business_name ?? session.user.fullName}</b>{me.data?.status}<button onClick={onLogout}>Sign out</button></div></nav>
+    <div className="content">
+      <header className="topbar"><nav className="crumbs" aria-label="Breadcrumb"><span>Partner</span><span aria-hidden="true">/</span><span aria-current="page">{items.find(([k]) => k === page)?.[1]}</span></nav><div className="user">{me.data?.business_name ?? session.user.fullName}</div></header>
+      <main id="main" tabIndex={-1}>{me.data && !approved && <p className={`pill ${me.data.status === "PENDING" ? "warn" : "bad"}`} role="status" style={{ marginBottom: 16 }}>
+        {me.data.status === "PENDING" ? "Your business is being reviewed by JOLAY. You will be able to open stores once it is approved." : `Your business is ${me.data.status}${me.data.review_note ? `: ${me.data.review_note}` : ""}`}</p>}
+        {pages[page]}</main></div></div>;
 }
 
 function Onboarding({ onDone, onLogout }: { onDone: () => void; onLogout: () => void }) {

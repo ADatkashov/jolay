@@ -4,26 +4,53 @@ import 'package:jolay_core/jolay_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('kk, ru and en define exactly the same keys (no untranslated strings)', () {
-    final en = stringKeys('en');
-    expect(stringKeys('kk').difference(en), isEmpty, reason: 'keys in kk missing from en');
-    expect(en.difference(stringKeys('kk')), isEmpty, reason: 'keys in en missing from kk');
-    expect(en.difference(stringKeys('ru')), isEmpty, reason: 'keys in en missing from ru');
-    expect(stringKeys('ru').difference(en), isEmpty);
-  });
+  test(
+    'kk, ru and en define exactly the same keys (no untranslated strings)',
+    () {
+      final en = stringKeys('en');
+      expect(
+        stringKeys('kk').difference(en),
+        isEmpty,
+        reason: 'keys in kk missing from en',
+      );
+      expect(
+        en.difference(stringKeys('kk')),
+        isEmpty,
+        reason: 'keys in en missing from kk',
+      );
+      expect(
+        en.difference(stringKeys('ru')),
+        isEmpty,
+        reason: 'keys in en missing from ru',
+      );
+      expect(stringKeys('ru').difference(en), isEmpty);
+    },
+  );
 
   test('translations resolve per locale and fall back safely', () {
     expect(tr(const Locale('ru'), 'btn.login'), 'Войти');
     expect(tr(const Locale('kk'), 'btn.login'), 'Кіру');
     expect(tr(const Locale('en'), 'btn.login'), 'Log in');
-    expect(tr(const Locale('de'), 'btn.login'), 'Log in'); // unsupported -> English
+    expect(
+      tr(const Locale('de'), 'btn.login'),
+      'Log in',
+    ); // unsupported -> English
     expect(tr(const Locale('en'), 'no.such.key'), 'no.such.key');
   });
 
-  test('backend error codes are localized, unknown codes get a generic message', () {
-    expect(errorText(const Locale('ru'), 'insufficient_funds'), contains('кошельке'));
-    expect(errorText(const Locale('en'), 'something_new'), 'Something went wrong');
-  });
+  test(
+    'backend error codes are localized, unknown codes get a generic message',
+    () {
+      expect(
+        errorText(const Locale('ru'), 'insufficient_funds'),
+        contains('кошельке'),
+      );
+      expect(
+        errorText(const Locale('en'), 'something_new'),
+        'Something went wrong',
+      );
+    },
+  );
 
   group('validators', () {
     test('phone formats are normalised like the backend', () {
@@ -76,7 +103,7 @@ void main() {
       expect((a['pushToken'] as String).startsWith('mock-'), isTrue);
       expect(a['platform'], 'mock');
       api.fail = true;
-      await registerPushToken(api, MockPushTokenSource());   // must not throw
+      await registerPushToken(api, MockPushTokenSource()); // must not throw
     });
   });
 }
@@ -85,7 +112,15 @@ class _RecordingApi extends ApiClient {
   final calls = <(String, Object?)>[];
   bool fail = false;
   @override
-  Future<dynamic> request(String method, String path, {Object? body, Map<String, dynamic>? query, Map<String, String>? headers, bool auth = true, bool retry = true}) async {
+  Future<dynamic> request(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+    bool auth = true,
+    bool retry = true,
+  }) async {
     calls.add((path, body));
     if (fail) throw Exception('offline');
     return null;
