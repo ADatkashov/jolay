@@ -83,4 +83,35 @@ class TwoGisRouteProviderTest {
         assertEquals("ESTIMATED", provider(3).route(A, B).source());
         assertEquals("ESTIMATED", new TwoGisRouteProvider("http://127.0.0.1:1", "k", Duration.ofMillis(300), new ObjectMapper(), estimate, null, new SimpleBreaker(3, Duration.ofSeconds(30))).route(A, B).source());
     }
+
+    @Test
+    void detailReturnsTheRoadGeometryAndTheManoeuvres() {
+        body = "{\"status\":\"OK\",\"result\":[{\"total_distance\":1500,\"total_duration\":300,\"maneuvers\":["
+                + "{\"comment\":\"Поверните направо на проспект Абая\",\"icon\":\"turn_right\",\"outcoming_path\":{\"distance\":800,\"geometry\":[{\"selection\":\"LINESTRING(76.9567 43.2335, 76.9570 43.2340)\"}]}},"
+                + "{\"comment\":\"Прибытие\",\"icon\":\"finish\",\"outcoming_path\":{\"distance\":700,\"geometry\":[{\"selection\":\"LINESTRING(76.9570 43.2340, 76.9066 43.2025)\"}]}}]}]}";
+        var d = provider(3).detail(A, B);
+        assertEquals(1500, d.distanceM());
+        assertEquals(300, d.durationS());
+        assertEquals("2GIS", d.source());
+        assertEquals(4, d.polyline().size());
+        assertArrayEquals(new double[]{43.2335, 76.9567}, d.polyline().get(0), 1e-9, "points are [lat, lng] (WKT is lon lat)");
+        assertEquals(2, d.steps().size());
+        assertEquals("Поверните направо на проспект Абая", d.steps().get(0).text());
+        assertEquals("turn_right", d.steps().get(0).icon());
+        assertEquals(800, d.steps().get(0).distanceM());
+        assertEquals(43.2335, d.steps().get(0).lat(), 1e-9);
+    }
+
+    @Test
+    void detailWithoutGeometryFallsBackToAStraightLineAndAnOutageToTheEstimate() {
+        body = "{\"status\":\"OK\",\"result\":[{\"total_distance\":900,\"total_duration\":120}]}";
+        var d = provider(3).detail(A, B);
+        assertEquals(900, d.distanceM());
+        assertEquals(2, d.polyline().size(), "no maneuvers: a straight line between the two points");
+        assertTrue(d.steps().isEmpty());
+        status = 500; body = "oops";
+        var e = provider(3).detail(A, B);
+        assertEquals("ESTIMATED", e.source());
+        assertEquals(1234, e.distanceM());
+    }
 }

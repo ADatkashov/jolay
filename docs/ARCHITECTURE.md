@@ -29,7 +29,7 @@ React admin     ──┘                       │  rides (state machine) · di
 `wss://host/ws?token=<access JWT>` (token in query string because browsers/mobile WS clients cannot set headers; use short-lived tokens and
 redact query strings in proxy logs). Message: `{"type": "...", "data": {...}, "ts": "..."}`.
 Types: `RIDE_OFFER`, `OFFER_EXPIRED`, `OFFER_CANCELLED`, `DRIVER_ACCEPTED`, `DRIVER_ARRIVING`, `DRIVER_ARRIVED`, `RIDE_STARTED`, `RIDE_COMPLETED`,
-`RIDE_CANCELLED`, `RIDE_EXPIRED`, `DRIVER_CANCELLED`, `DRIVER_LOCATION_UPDATED`, `PAYMENT_STATUS_UPDATED`, `SUPPORT_MESSAGE`, `VERIFICATION_STATUS`.
+`RIDE_CANCELLED`, `RIDE_EXPIRED`, `DRIVER_CANCELLED`, `DRIVER_LOCATION_UPDATED`, `CUSTOMER_LOCATION_UPDATED` (driver only, while on the way to the pickup), `PAYMENT_STATUS_UPDATED`, `SUPPORT_MESSAGE`, `VERIFICATION_STATUS`.
 Events are delivered to the connections of the addressed user only. Single-instance only: to run >1 backend replica, fan events out through
 Postgres `LISTEN/NOTIFY` or a broker (not implemented).
 

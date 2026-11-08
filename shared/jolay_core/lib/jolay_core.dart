@@ -10,6 +10,7 @@ export 'src/validators.dart';
 export 'src/format.dart';
 export 'src/safety.dart';
 export 'src/push.dart';
+export 'src/navigation.dart';
 export 'src/design/tokens.dart';
 export 'src/design/icons.dart';
 export 'src/design/buttons.dart';
