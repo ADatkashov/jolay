@@ -22,7 +22,11 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
       final s = ref.read(authProvider).status;
       final loc = state.matchedLocation;
       if (s == AuthStatus.unknown) return loc == '/splash' ? null : '/splash';
-      if (s == AuthStatus.signedOut && !pub.contains(loc)) return '/login';
+      // The splash is a public path, but a signed-out driver must still leave it (else a fresh install never gets past it).
+      if (s == AuthStatus.signedOut &&
+          (loc == '/splash' || !pub.contains(loc))) {
+        return '/login';
+      }
       if (s == AuthStatus.signedIn && pub.contains(loc)) return '/home';
       return null;
     },
