@@ -123,7 +123,19 @@ jobs:
           apk="apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk"
           # The runner has several build-tools versions installed: use the newest one.
           bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
-          "$ANDROID_HOME/build-tools/$bt/apksigner" verify --print-certs "$apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          # apksigner exits non-zero when the signature does not verify. Print its whole
+          # output (no grep that can fail on a format change) and reject the debug key.
+          rc=0
+          out=$("$ANDROID_HOME/build-tools/$bt/apksigner" verify --verbose --print-certs "$apk" 2>&1) || rc=$?
+          echo "$out"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::apksigner verify failed (exit $rc)"
+            exit "$rc"
+          fi
+          if echo "$out" | grep -q "CN=Android Debug"; then
+            echo "::error::APK is signed with the debug key, not the release key"
+            exit 1
+          fi
 
       - name: Name the outputs
         run: |
