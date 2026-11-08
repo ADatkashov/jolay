@@ -83,15 +83,26 @@ class HomeTab extends ConsumerStatefulWidget {
   ConsumerState<HomeTab> createState() => _HomeState();
 }
 
-class _HomeState extends ConsumerState<HomeTab> {
+class _HomeState extends ConsumerState<HomeTab>
+    with SingleTickerProviderStateMixin {
   LocationState? _loc;
   Place? _here;
   final _map = MapController();
+  late final MapCameraAnimator _camera = MapCameraAnimator(_map, this);
+
+  /// Saved/recent chips are collapsible so the passenger can reclaim map space (drag or tap the handle).
+  bool _shortcutsOpen = true;
 
   @override
   void initState() {
     super.initState();
     _init();
+  }
+
+  @override
+  void dispose() {
+    _camera.dispose();
+    super.dispose();
   }
 
   Future<void> _init() async {
@@ -105,11 +116,11 @@ class _HomeState extends ConsumerState<HomeTab> {
     final p = await LocationService.current();
     if (!mounted || p == null) return;
     setState(() => _here = p);
-    try {
-      _map.move(LatLng(p.lat, p.lng), 15);
-    } catch (_) {
-      /* map not laid out yet */
-    }
+    _camera.moveTo(
+      LatLng(p.lat, p.lng),
+      15,
+      reduceMotion: context.reduceMotion,
+    );
     ref
         .read(draftProvider.notifier)
         .setPickup(
@@ -260,14 +271,24 @@ class _HomeState extends ConsumerState<HomeTab> {
                   key: const Key('map-recenter'),
                   icon: AppIcons.myLocation,
                   tooltip: ref.t('map.recenter'),
-                  onPressed: () =>
-                      _here != null ? _map.move(center, 15) : _allow(),
+                  onPressed: () => _here != null
+                      ? _camera.moveTo(
+                          center,
+                          15,
+                          reduceMotion: context.reduceMotion,
+                        )
+                      : _allow(),
                 ),
               ),
             ],
           ),
         ),
         MapPanel(
+          expanded: _shortcutsOpen,
+          handleLabel: ref.t(
+            _shortcutsOpen ? 'sheet.collapse' : 'sheet.expand',
+          ),
+          onExpandChanged: (v) => setState(() => _shortcutsOpen = v),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -368,14 +389,21 @@ class _HomeState extends ConsumerState<HomeTab> {
                   ),
                 ],
               ),
-              _Shortcuts(
-                saved: saved,
-                recent: recent,
-                onPick: _go,
-                onRetry: () {
-                  ref.invalidate(recentDestinationsProvider);
-                  ref.invalidate(savedAddressesProvider);
-                },
+              AnimatedSize(
+                duration: context.motion(AppDurations.base),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: _shortcutsOpen
+                    ? _Shortcuts(
+                        saved: saved,
+                        recent: recent,
+                        onPick: _go,
+                        onRetry: () {
+                          ref.invalidate(recentDestinationsProvider);
+                          ref.invalidate(savedAddressesProvider);
+                        },
+                      )
+                    : const SizedBox(width: double.infinity),
               ),
             ],
           ),
@@ -608,7 +636,7 @@ class _ServiceTile extends StatelessWidget {
           borderRadius: AppRadius.cardR,
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 104),
+            constraints: const BoxConstraints(minHeight: 112),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
               child: Column(
@@ -632,19 +660,25 @@ class _ServiceTile extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: t.titleSmall?.copyWith(
-                          color: fg,
-                          fontWeight: FontWeight.w800,
+                      // The title scales down instead of being cut off (long Kazakh/Russian words on small phones);
+                      // the sub-line may wrap to two lines.
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: t.titleSmall?.copyWith(
+                            color: fg,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                       Text(
                         sub,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        overflow: TextOverflow.fade,
                         style: t.bodySmall?.copyWith(
                           color: primary
                               ? AppColors.midnight.withValues(alpha: .7)

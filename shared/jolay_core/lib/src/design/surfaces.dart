@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'buttons.dart';
 import 'icons.dart';
@@ -31,7 +32,8 @@ class AppCard extends StatelessWidget {
       AppCardVariant.outlined ||
       AppCardVariant.elevated => selected ? p.selected : p.surface,
       AppCardVariant.filled => p.divider,
-      AppCardVariant.inverse => AppColors.midnight,
+      // On a dark theme a black card would vanish into the sheet: lift it and give it a faint yellow edge instead.
+      AppCardVariant.inverse => p.isDark ? p.elevated : AppColors.midnight,
     };
     // A Material (not a coloured DecoratedBox) so InkWell splashes and ListTiles inside the card paint on top of the fill.
     final card = DecoratedBox(
@@ -54,6 +56,8 @@ class AppCard extends StatelessWidget {
                   color: selected ? p.selectedBorder : p.border,
                   width: selected ? 2 : 1,
                 )
+              : variant == AppCardVariant.inverse && p.isDark
+              ? BorderSide(color: p.accent.withValues(alpha: .35))
               : BorderSide.none,
         ),
         child: InkWell(
@@ -160,9 +164,18 @@ Future<T?> showAppBottomSheet<T>(
 class MapPanel extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
+
+  /// When set, the drag handle becomes interactive: tap toggles, a vertical fling calls it with the wanted state
+  /// (`true` = expand). [handleLabel] is its accessibility label.
+  final ValueChanged<bool>? onExpandChanged;
+  final bool expanded;
+  final String? handleLabel;
   const MapPanel({
     super.key,
     required this.child,
+    this.onExpandChanged,
+    this.expanded = true,
+    this.handleLabel,
     this.padding = const EdgeInsets.fromLTRB(
       AppSpacing.gutter,
       0,
@@ -186,20 +199,70 @@ class MapPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 12),
-                width: 40,
-                height: AppSizes.grabber,
-                decoration: BoxDecoration(
-                  color: p.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+            _Handle(
+              color: p.isDark ? const Color(0xFF4A4A4A) : p.border,
+              onExpandChanged: onExpandChanged,
+              expanded: expanded,
+              label: handleLabel,
             ),
             Padding(padding: padding, child: child),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The grabber of a bottom sheet. Visually 40×4; the touch area is 48 high so it is easy to hit one-handed.
+class _Handle extends StatelessWidget {
+  final Color color;
+  final ValueChanged<bool>? onExpandChanged;
+  final bool expanded;
+  final String? label;
+  const _Handle({
+    required this.color,
+    required this.onExpandChanged,
+    required this.expanded,
+    required this.label,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final bar = Center(
+      child: Container(
+        width: 40,
+        height: AppSizes.grabber,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+    final cb = onExpandChanged;
+    if (cb == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 12),
+        child: bar,
+      );
+    }
+    return Semantics(
+      button: true,
+      label: label,
+      expanded: expanded,
+      excludeSemantics: true,
+      onTap: () => cb(!expanded),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          cb(!expanded);
+        },
+        onVerticalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0;
+          if (v.abs() < 120) return;
+          HapticFeedback.selectionClick();
+          cb(v < 0);
+        },
+        child: SizedBox(height: 32, child: bar),
       ),
     );
   }

@@ -483,8 +483,22 @@ class ActiveTripCard extends ConsumerWidget {
           PrimaryButton(
             key: const Key('stage-button'),
             label: label,
+            size: AppButtonSize.xl,
             loading: busy,
-            onPressed: () => onAct(path),
+            onPressed: () async {
+              // Finishing is irreversible (it settles the fare), so it asks once; earlier stages are one tap.
+              if (st == 'IN_PROGRESS') {
+                final ok = await showConfirmationDialog(
+                  context,
+                  title: ref.t('driver.completeConfirmTitle'),
+                  message: ref.t('driver.completeConfirmBody'),
+                  confirmLabel: ref.t('driver.complete'),
+                  cancelLabel: ref.t('btn.cancel'),
+                );
+                if (!ok) return;
+              }
+              await onAct(path);
+            },
           ),
           if (st != 'IN_PROGRESS')
             AppTextButton(
