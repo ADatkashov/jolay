@@ -8,3 +8,5 @@ Splash 📷✅ · Onboarding ✅ · Sign up / Login / Forgot / Reset / OTP ✅ �
 Splash, login, sign-up, OTP ✅ · Vehicle registration, verification status, documents ✅ · Home idle/offline/offer/trip/delivery 📷✅ · Earnings, History, Profile 📷✅ · Payouts ✅ · Passenger rating on request, in-app navigation ⛔
 ## Web
 Admin shell + overview + tables 📷✅ · Partner shell + orders 📷✅. Page internals keep their existing layouts and now inherit the new styles; no new capabilities were invented.
+
+Screenshots (Chromium, 390×844 mobile / 1366×820 desktop, light + dark where noted): `docs/screenshots/design/` — `customer-*`, `driver-*`, `web-*`. Taken from demo builds with fake data, not from a device.
