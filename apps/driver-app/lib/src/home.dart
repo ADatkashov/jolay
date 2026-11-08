@@ -19,9 +19,10 @@ export 'registration.dart';
 export 'tabs.dart';
 export 'trip_cards.dart';
 
+/// Map tiles are 2GIS, fetched through the JOLAY backend (the 2GIS key stays on the server).
 const tileUrl = String.fromEnvironment(
   'TILE_URL',
-  defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  defaultValue: '${ApiConfig.baseUrl}/api/v1/geo/tiles/{z}/{x}/{y}.png',
 );
 
 /// Decides what the driver sees based on server-side state: no profile -> vehicle registration,
@@ -302,9 +303,7 @@ class _HomeState extends ConsumerState<DriverHome> {
               const RichAttributionWidget(
                 alignment: AttributionAlignment.bottomLeft,
                 attributions: [
-                  TextSourceAttribution(
-                    '© OpenStreetMap contributors (dev tiles)',
-                  ),
+                  TextSourceAttribution('© 2GIS'),
                 ],
               ),
             ],

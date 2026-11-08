@@ -10,7 +10,7 @@ const sevClass = (s: string) => (s === "CRITICAL" || s === "HIGH" ? "bad" : s ==
 const Pill = ({ v }: { v: string }) => <span className={`pill ${["RESOLVED", "PAID", "DISMISSED"].includes(v) ? "ok" : ["REJECTED", "CRITICAL", "HIGH", "CONFIRMED"].includes(v) ? "bad" : "warn"}`}>{v}</span>;
 const errMsg = (e: unknown) => (e instanceof ApiError ? e.message : "Network error");
 
-/** Operations map: online drivers and active rides. Tiles are the public OSM server (development only); use a licensed provider in production. */
+/** Operations map: online drivers and active rides. Tiles are 2GIS, served through the JOLAY backend (the key stays on the server). */
 export function LiveMap({ drivers, rides }: { drivers: Row[]; rides: Row[] }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -18,7 +18,7 @@ export function LiveMap({ drivers, rides }: { drivers: Row[]; rides: Row[] }) {
   useEffect(() => {
     if (!el.current || map.current) return;
     map.current = L.map(el.current).setView([43.2389, 76.8897], 12);
-    L.tileLayer(import.meta.env.VITE_TILE_URL ?? "https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors (dev tiles)", maxZoom: 19 }).addTo(map.current);
+    L.tileLayer(import.meta.env.VITE_TILE_URL ?? "/api/v1/geo/tiles/{z}/{x}/{y}.png", { attribution: "© 2GIS", maxZoom: 19 }).addTo(map.current);
     layer.current = L.layerGroup().addTo(map.current);
     return () => { map.current?.remove(); map.current = null; };
   }, []);

@@ -3,7 +3,7 @@ package kz.jolay.geography;
 import kz.jolay.common.GeoPoint;
 
 /**
- * Routing abstraction. Production deployments plug in Google/Mapbox/2GIS via another bean.
+ * Routing abstraction. Production uses {@link TwoGisRouteProvider} (see {@link RoutingConfig}).
  * The default {@link EstimatedRouteProvider} is a DEVELOPMENT FALLBACK: great-circle distance scaled by a detour factor.
  * Its result is flagged source=ESTIMATED so clients never present it as live navigation.
  */

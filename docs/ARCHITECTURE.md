@@ -35,7 +35,7 @@ Postgres `LISTEN/NOTIFY` or a broker (not implemented).
 
 ## Maps
 Routing/geocoding are interfaces. Production needs a licensed provider (Google Maps, Mapbox or 2GIS) — **none is integrated**; this requires an API
-contract and credentials. Apps render tiles from `TILE_URL` (default public OSM, development only).
+contract and credentials. Apps render 2GIS tiles served by the backend at `/api/v1/geo/tiles/{z}/{x}/{y}.png` (override with `TILE_URL`).
 
 ## Not yet built
 Delivery/partner modules, fraud scoring, safety tooling beyond dialing 112, FCM, real SMS, payment-provider adapters, driver payout workflow.

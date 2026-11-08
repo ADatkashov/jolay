@@ -11,7 +11,7 @@ import java.util.UUID;
 @Service
 public class GeoService {
     private final JdbcClient jdbc;
-    private final ExternalGeocoder external;       // null unless JOLAY_NOMINATIM_URL is configured
+    private final ExternalGeocoder external;       // null unless JOLAY_2GIS_KEY is configured
     public GeoService(JdbcClient jdbc, org.springframework.beans.factory.ObjectProvider<ExternalGeocoder> external) { this.jdbc = jdbc; this.external = external.getIfAvailable(); }
 
     public record Place(UUID id, String name, String address, double lat, double lng) {}

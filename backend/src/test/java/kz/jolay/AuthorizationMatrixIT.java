@@ -90,8 +90,8 @@ class AuthorizationMatrixIT extends IntegrationTestBase {
     @Test
     void everyEndpointWithoutARoleRuleIsOnTheReviewedList() {
         Set<String> reviewed = new TreeSet<>(List.of(
-                // public by design (authentication endpoints, public catalog, trip/tracking pages, gateway callbacks authenticated by signature)
-                "AuthController", "CatalogController", "LegalController", "RideShareController#view", "RideShareController#page", "DeliveryController#track", "PaymentController#webhook",
+                // public by design (authentication endpoints, public catalog, trip/tracking pages, gateway callbacks authenticated by signature, 2GIS map tiles: a map widget cannot send a bearer token per tile, only valid z/x/y are served)
+                "AuthController", "CatalogController", "LegalController", "TileController", "RideShareController#view", "RideShareController#page", "DeliveryController#track", "PaymentController#webhook",
                 // signed-in users of any role, every query scoped to Auth.id()
                 "CustomerController#me", "CustomerController#update", "CustomerController#delete", "GeoController", "MfaController", "NotificationController", "SupportController"));
         List<String> unreviewed = new ArrayList<>();
