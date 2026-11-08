@@ -177,3 +177,26 @@ Before marking a screen production-ready:
 - [Product implementation status](../product/STATUS.md)
 - [Owner product brief](../product/OWNER_PROMPTS.md)
 - [Repository README](../../README.md)
+
+
+---
+
+## Implemented direction (design-system release)
+
+
+Premium minimalism, map-first, restrained yellow on Midnight/Cloud. This documents what is built — see [JOLAY_DESIGN_SYSTEM.md](JOLAY_DESIGN_SYSTEM.md) for tokens/components and [SCREEN_INVENTORY.md](SCREEN_INVENTORY.md) for coverage.
+
+* **Customer:** Midnight splash → 3-slide onboarding with code-drawn illustrations, skip and language → phone/OTP auth (segmented OTP, inline error, resend timer) → map-first home (location-permission card, recenter, notifications, active-ride banner) → destination search → ride categories (RideTypeCard, promo, payment) → animated driver search (timer, cancel) → driver assigned/live trip (progress, vehicle plate, call, share, SOS) → completion (receipt, pay, rating, ride again). Ordering, parcel (Express), activity, wallet, profile, notifications share the same components.
+* **Driver:** Midnight auth shell, map dashboard with a single online switch and today stats, request card where *earnings* and *Accept* dominate (countdown ring, pickup/trip time, route), active trip/delivery panel with one stage button, earnings, history, profile, documents checklist.
+* **Web (admin/partner):** SaaS shell — grouped sidebar, breadcrumb topbar, skip link, `aria-current`, sticky-ready tables, icon+text status pills, dark mode, responsive.
+* **Dark mode:** separate semantic tokens; customer/driver have System/Light/Dark in Profile → Appearance; web follows the OS.
+Honest limits: no Manrope (Kazakh coverage); no customer↔driver chat, tipping, saved-address editor, payment-method vault or in-app merchant search because the backend does not provide them.
+
+### Deviations from the specification above
+| Spec | Implemented | Why |
+|---|---|---|
+| Manrope | **Inter** (bundled) | Manrope lacks Kazakh Ә Ғ Қ Ң Ұ |
+| Text secondary `#777777` | `#6B6B6B` | WCAG AA (4.5:1) on Cloud |
+| Success `#20A46B`, Error `#E5484D`, Border `#EAEAEA` | `#198754`, `#DC3545`, `#E8E8E5` | Brand brief for this release; tokens in `shared/design-tokens/` |
+| Input min height 56 | 52 | Matches button scale |
+Full token and component reference: [JOLAY_DESIGN_SYSTEM.md](JOLAY_DESIGN_SYSTEM.md).

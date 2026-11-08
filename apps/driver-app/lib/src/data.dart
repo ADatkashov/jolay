@@ -17,19 +17,37 @@ final eventsProvider = StreamProvider<RealtimeEvent>((ref) {
 });
 
 /// 404 `driver_not_registered` is a legitimate state (profile not created yet), so it is returned as null.
-final driverMeProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
-  try { return await ref.read(apiProvider).get('/drivers/me') as Map<String, dynamic>; }
-  on ApiException catch (e) { if (e.code == 'driver_not_registered') return null; rethrow; }
+final driverMeProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((
+  ref,
+) async {
+  try {
+    return await ref.read(apiProvider).get('/drivers/me')
+        as Map<String, dynamic>;
+  } on ApiException catch (e) {
+    if (e.code == 'driver_not_registered') return null;
+    rethrow;
+  }
 });
 
-final earningsProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, p) async =>
-    await ref.read(apiProvider).get('/drivers/earnings', query: {'period': p}) as Map<String, dynamic>);
+final earningsProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>(
+      (ref, p) async =>
+          await ref
+                  .read(apiProvider)
+                  .get('/drivers/earnings', query: {'period': p})
+              as Map<String, dynamic>,
+    );
 
-final historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async =>
-    ((await ref.read(apiProvider).get('/drivers/rides/history')) as List).cast<Map<String, dynamic>>());
+final historyProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) async =>
+      ((await ref.read(apiProvider).get('/drivers/rides/history')) as List)
+          .cast<Map<String, dynamic>>(),
+);
 
-final walletProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-    await ref.read(apiProvider).get('/wallet') as Map<String, dynamic>);
+final walletProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+  (ref) async =>
+      await ref.read(apiProvider).get('/wallet') as Map<String, dynamic>,
+);
 
 /// Streams the driver's position to the backend while online. Positions are validated server-side
 /// (offline/unapproved/suspended drivers and impossible jumps are rejected).
@@ -43,14 +61,24 @@ class LocationPublisher {
   Future<bool> ensurePermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) return false;
     var p = await Geolocator.checkPermission();
-    if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
+    if (p == LocationPermission.denied) {
+      p = await Geolocator.requestPermission();
+    }
     return p == LocationPermission.always || p == LocationPermission.whileInUse;
   }
 
   Future<void> start() async {
     await stop();
-    try { _last = await Geolocator.getCurrentPosition(); await _push(); } catch (_) {}
-    _sub = Geolocator.getPositionStream(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 10)).listen((p) => _last = p, onError: (_) {});
+    try {
+      _last = await Geolocator.getCurrentPosition();
+      await _push();
+    } catch (_) {}
+    _sub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((p) => _last = p, onError: (_) {});
     _timer = Timer.periodic(const Duration(seconds: 4), (_) => _push());
   }
 
@@ -58,13 +86,32 @@ class LocationPublisher {
     final p = _last;
     if (p == null) return;
     try {
-      await api.post('/drivers/location', body: {'point': {'lat': p.latitude, 'lng': p.longitude}, 'heading': p.heading.isNaN || p.heading < 0 ? 0 : p.heading.clamp(0, 360), 'speedKmh': (p.speed.isNaN || p.speed < 0 ? 0 : p.speed * 3.6).clamp(0, 250)});
-    } catch (_) {/* transient: next tick retries */}
+      await api.post(
+        '/drivers/location',
+        body: {
+          'point': {'lat': p.latitude, 'lng': p.longitude},
+          'heading': p.heading.isNaN || p.heading < 0
+              ? 0
+              : p.heading.clamp(0, 360),
+          'speedKmh': (p.speed.isNaN || p.speed < 0 ? 0 : p.speed * 3.6).clamp(
+            0,
+            250,
+          ),
+        },
+      );
+    } catch (_) {
+      /* transient: next tick retries */
+    }
   }
 
   Position? get last => _last;
 
-  Future<void> stop() async { await _sub?.cancel(); _timer?.cancel(); _sub = null; _timer = null; }
+  Future<void> stop() async {
+    await _sub?.cancel();
+    _timer?.cancel();
+    _sub = null;
+    _timer = null;
+  }
 }
 
 final locationPublisherProvider = Provider<LocationPublisher>((ref) {

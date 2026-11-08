@@ -28,13 +28,20 @@ class MockPushTokenSource implements PushTokenSource {
   }
 }
 
-final pushTokenSourceProvider = Provider<PushTokenSource>((ref) => MockPushTokenSource());
+final pushTokenSourceProvider = Provider<PushTokenSource>(
+  (ref) => MockPushTokenSource(),
+);
 
 /// Registers this device with the backend. Best effort: push is never allowed to break sign-in.
 Future<void> registerPushToken(ApiClient api, PushTokenSource source) async {
   try {
     final d = await source.obtain();
     if (d == null) return;
-    await api.post('/notifications/devices', body: {'pushToken': d.token, 'platform': d.platform});
-  } catch (_) {/* retried on the next sign-in / app start */}
+    await api.post(
+      '/notifications/devices',
+      body: {'pushToken': d.token, 'platform': d.platform},
+    );
+  } catch (_) {
+    /* retried on the next sign-in / app start */
+  }
 }

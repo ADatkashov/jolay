@@ -7,7 +7,9 @@ import 'auth.dart';
 import 'home.dart';
 
 class _Refresh extends ChangeNotifier {
-  _Refresh(Ref ref) { ref.listen(authProvider, (_, _) => notifyListeners()); }
+  _Refresh(Ref ref) {
+    ref.listen(authProvider, (_, _) => notifyListeners());
+  }
 }
 
 final driverRouterProvider = Provider<GoRouter>((ref) {
@@ -28,7 +30,10 @@ final driverRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (_, _) => const DriverSplash()),
       GoRoute(path: '/login', builder: (_, _) => const DriverLogin()),
       GoRoute(path: '/signup', builder: (_, _) => const DriverSignUp()),
-      GoRoute(path: '/otp', builder: (_, s) => DriverOtp(phone: s.extra as String)),
+      GoRoute(
+        path: '/otp',
+        builder: (_, s) => DriverOtp(phone: s.extra as String),
+      ),
       GoRoute(path: '/home', builder: (_, _) => const DriverGate()),
     ],
   );

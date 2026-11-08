@@ -1,6 +1,34 @@
+/* JOLAY design tokens (web). Mirrors the Flutter tokens in shared/jolay_core/lib/src/design/tokens.dart — change both together.
+   Dark values are separate semantic tokens, not an inversion. */
 :root {
+  /* brand */
   --jolay-midnight: #171717; --jolay-yellow: #F5BD35; --jolay-cloud: #F7F7F4; --jolay-white: #FFFFFF;
-  --jolay-text: #171717; --jolay-text-2: #777777; --jolay-success: #20A46B; --jolay-error: #E5484D; --jolay-border: #EAEAEA;
-  --jolay-radius-sm: 8px; --jolay-radius-md: 14px; --jolay-radius-lg: 20px;
-  --jolay-font: Manrope, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* semantic (light) */
+  --bg: #F7F7F4; --surface: #FFFFFF; --elevated: #FFFFFF;
+  --text: #171717; --text-2: #6B6B6B; /* #6B6B6B (not #777) keeps body-size secondary text above WCAG AA 4.5:1 on Cloud */
+  --border: #E8E8E5; --divider: #EFEFEB; --selected: #FDF3D6; --accent: #F5BD35; --on-accent: #171717;
+  --success: #198754; --warning: #9A6200; --error: #DC3545; --info: #2878D0;
+  --success-soft: #DDF3E7; --warning-soft: #FCEFD2; --error-soft: #FBE2E5; --info-soft: #E0EDFB;
+  --focus: #171717;
+
+  /* shape, spacing, elevation, motion */
+  --radius-xs: 6px; --radius-sm: 10px; --radius-btn: 14px; --radius-card: 18px; --radius-sheet: 28px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.05); --shadow-float: 0 8px 24px rgba(0,0,0,.12);
+  --dur-fast: 120ms; --dur-base: 200ms;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* legacy names (kept so older rules keep working) */
+  --jolay-text: var(--text); --jolay-text-2: var(--text-2); --jolay-success: var(--success); --jolay-error: var(--error); --jolay-border: var(--border);
+  --jolay-radius-sm: var(--radius-sm); --jolay-radius-md: var(--radius-btn); --jolay-radius-lg: var(--radius-card); --jolay-font: var(--font);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0E0E0E; --surface: #1A1A19; --elevated: #252524;
+    --text: #F4F4F0; --text-2: #A6A6A1; --border: #34342F; --divider: #2A2A27; --selected: #3A3120;
+    --success: #3DBB7E; --warning: #F0B45A; --error: #F2707A; --info: #6AAEF0;
+    --success-soft: #16301F; --warning-soft: #3A2D12; --error-soft: #3B1A1E; --info-soft: #14283D;
+    --focus: #F5BD35; --shadow-card: none; --shadow-float: 0 8px 24px rgba(0,0,0,.5);
+  }
 }

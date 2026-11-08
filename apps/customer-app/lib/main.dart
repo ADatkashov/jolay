@@ -6,7 +6,12 @@ import 'package:jolay_core/jolay_core.dart';
 import 'src/router.dart';
 
 void main() {
-  runApp(ProviderScope(overrides: [requiredRoleProvider.overrideWithValue('CUSTOMER')], child: const JolayCustomerApp()));
+  runApp(
+    ProviderScope(
+      overrides: [requiredRoleProvider.overrideWithValue('CUSTOMER')],
+      child: const JolayCustomerApp(),
+    ),
+  );
 }
 
 class JolayCustomerApp extends ConsumerWidget {
@@ -18,9 +23,15 @@ class JolayCustomerApp extends ConsumerWidget {
       title: 'JOLAY',
       debugShowCheckedModeBanner: false,
       theme: jolayTheme(),
+      darkTheme: jolayDarkTheme(),
+      themeMode: ref.watch(themeModeProvider),
       locale: locale,
       supportedLocales: supportedLocales,
-      localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       routerConfig: ref.watch(routerProvider),
     );
   }

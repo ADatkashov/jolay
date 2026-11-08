@@ -1,62 +1,261 @@
 import 'package:flutter/material.dart';
 
-/// JOLAY design tokens (mirrors shared/design-tokens/tokens.json).
-class JolayColors {
-  static const midnight = Color(0xFF171717);
-  static const yellow = Color(0xFFF5BD35);
-  static const cloud = Color(0xFFF7F7F4);
-  static const white = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFF777777);
-  static const success = Color(0xFF20A46B);
-  static const error = Color(0xFFE5484D);
-  static const border = Color(0xFFEAEAEA);
+import 'design/tokens.dart';
+
+/// Legacy aliases kept so existing screens compile; new code should use [AppColors] / `context.palette`.
+abstract final class JolayColors {
+  static const midnight = AppColors.midnight;
+  static const yellow = AppColors.yellow;
+  static const cloud = AppColors.cloud;
+  static const white = AppColors.white;
+  static const textSecondary = AppColors.textSecondary;
+  static const success = AppColors.success;
+  static const error = AppColors.error;
+  static const border = AppColors.border;
 }
 
-class JolayRadius {
-  static const sm = 8.0, md = 14.0, lg = 20.0;
+abstract final class JolayRadius {
+  static const sm = AppRadius.sm, md = AppRadius.button, lg = AppRadius.card;
 }
 
-ThemeData jolayTheme() {
-  const font = 'Manrope'; // falls back to the platform font if the font asset is not bundled
-  final scheme = ColorScheme.fromSeed(seedColor: JolayColors.yellow, brightness: Brightness.light).copyWith(
-    primary: JolayColors.yellow, onPrimary: JolayColors.midnight, secondary: JolayColors.midnight, onSecondary: Colors.white,
-    surface: JolayColors.white, onSurface: JolayColors.midnight, error: JolayColors.error,
+ThemeData jolayTheme() => _build(JolayPalette.light, Brightness.light);
+ThemeData jolayDarkTheme() => _build(JolayPalette.dark, Brightness.dark);
+
+ThemeData _build(JolayPalette p, Brightness b) {
+  final scheme = ColorScheme(
+    brightness: b,
+    primary: p.accent,
+    onPrimary: p.onAccent,
+    secondary: p.isDark ? p.accent : AppColors.midnight,
+    onSecondary: p.isDark ? p.onAccent : AppColors.white,
+    error: p.error,
+    onError: p.isDark ? AppColors.midnight : AppColors.white,
+    surface: p.surface,
+    onSurface: p.textPrimary,
+    surfaceContainerLowest: p.background,
+    surfaceContainerLow: p.surface,
+    surfaceContainer: p.surface,
+    surfaceContainerHigh: p.elevated,
+    surfaceContainerHighest: p.elevated,
+    onSurfaceVariant: p.textSecondary,
+    outline: p.border,
+    outlineVariant: p.divider,
+    inverseSurface: p.inverse,
+    onInverseSurface: p.onInverse,
+    scrim: Colors.black,
+    primaryContainer: p.selected,
+    onPrimaryContainer: p.textPrimary,
   );
+  final text = AppTypography.textTheme(p.textPrimary, p.textSecondary);
+  final shape = RoundedRectangleBorder(borderRadius: AppRadius.buttonR);
+  OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
+    borderRadius: AppRadius.inputR,
+    borderSide: BorderSide(color: c, width: w),
+  );
+
   return ThemeData(
     useMaterial3: true,
+    brightness: b,
     colorScheme: scheme,
-    fontFamily: font,
-    fontFamilyFallback: const ['Inter', 'Roboto'],
-    scaffoldBackgroundColor: JolayColors.cloud,
-    appBarTheme: const AppBarTheme(backgroundColor: JolayColors.cloud, foregroundColor: JolayColors.midnight, elevation: 0, scrolledUnderElevation: 0),
-    cardTheme: CardThemeData(color: Colors.white, elevation: 0, margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(JolayRadius.md), side: const BorderSide(color: JolayColors.border))),
+    fontFamily: AppTypography.family,
+    package: AppTypography.package,
+    textTheme: text,
+    primaryTextTheme: text,
+    scaffoldBackgroundColor: p.background,
+    canvasColor: p.background,
+    dividerColor: p.divider,
+    dividerTheme: DividerThemeData(color: p.divider, thickness: 1, space: 1),
+    splashFactory: InkRipple.splashFactory,
+    visualDensity: VisualDensity.standard,
+    extensions: [p],
+    appBarTheme: AppBarTheme(
+      backgroundColor: p.background,
+      foregroundColor: p.textPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      titleTextStyle: text.titleLarge,
+      iconTheme: IconThemeData(color: p.textPrimary),
+    ),
+    cardTheme: CardThemeData(
+      color: p.surface,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.cardR,
+        side: BorderSide(color: p.border),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
-      filled: true, fillColor: Colors.white,
+      filled: true,
+      fillColor: p.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(JolayRadius.md), borderSide: const BorderSide(color: JolayColors.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(JolayRadius.md), borderSide: const BorderSide(color: JolayColors.border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(JolayRadius.md), borderSide: const BorderSide(color: JolayColors.midnight, width: 1.5)),
+      labelStyle: text.bodyMedium?.copyWith(color: p.textSecondary),
+      hintStyle: text.bodyMedium?.copyWith(color: p.textSecondary),
+      errorStyle: text.bodySmall?.copyWith(
+        color: p.error,
+        fontWeight: FontWeight.w500,
+      ),
+      border: border(p.border),
+      enabledBorder: border(p.border),
+      disabledBorder: border(p.divider),
+      focusedBorder: border(p.isDark ? p.accent : AppColors.midnight, 2),
+      errorBorder: border(p.error),
+      focusedErrorBorder: border(p.error, 2),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: JolayColors.yellow, foregroundColor: JolayColors.midnight, minimumSize: const Size.fromHeight(54),
-        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(JolayRadius.md)),
+        backgroundColor: p.accent,
+        foregroundColor: p.onAccent,
+        disabledBackgroundColor: p.divider,
+        disabledForegroundColor: p.textSecondary,
+        minimumSize: const Size.fromHeight(AppSizes.buttonL),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        textStyle: text.labelLarge,
+        shape: shape,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: JolayColors.midnight, minimumSize: const Size.fromHeight(54), side: const BorderSide(color: JolayColors.border),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(JolayRadius.md)),
+        foregroundColor: p.textPrimary,
+        disabledForegroundColor: p.textSecondary,
+        minimumSize: const Size.fromHeight(AppSizes.buttonL),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        side: BorderSide(color: p.border),
+        textStyle: text.labelLarge,
+        shape: shape,
       ),
     ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white, indicatorColor: JolayColors.yellow,
-      labelTextStyle: WidgetStateProperty.all(const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: p.textPrimary,
+        minimumSize: const Size(AppSizes.minTap, AppSizes.buttonM),
+        textStyle: text.labelLarge,
+        shape: shape,
+      ),
     ),
-    snackBarTheme: SnackBarThemeData(behavior: SnackBarBehavior.floating, backgroundColor: JolayColors.midnight,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(JolayRadius.sm))),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        minimumSize: const Size(AppSizes.minTap, AppSizes.minTap),
+        foregroundColor: p.textPrimary,
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: p.surface,
+      selectedColor: p.selected,
+      side: BorderSide(color: p.border),
+      labelStyle: text.labelMedium,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      showCheckmark: false,
+    ),
+    listTileTheme: ListTileThemeData(
+      iconColor: p.textPrimary,
+      textColor: p.textPrimary,
+      minVerticalPadding: 10,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: p.surface,
+      indicatorColor: p.accent,
+      height: AppSizes.navBar,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (s) => text.labelSmall?.copyWith(
+          color: s.contains(WidgetState.selected)
+              ? p.textPrimary
+              : p.textSecondary,
+          fontWeight: s.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w500,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (s) => IconThemeData(
+          size: 24,
+          color: s.contains(WidgetState.selected)
+              ? p.onAccent
+              : p.textSecondary,
+        ),
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: p.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.sheetR),
+      showDragHandle: false,
+      clipBehavior: Clip.antiAlias,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: p.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.sheet - 4),
+      ),
+      titleTextStyle: text.titleLarge,
+      contentTextStyle: text.bodyMedium,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: p.inverse,
+      contentTextStyle: text.bodyMedium?.copyWith(
+        color: p.onInverse,
+        fontWeight: FontWeight.w500,
+      ),
+      actionTextColor: p.isDark ? AppColors.midnight : AppColors.yellow,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonR),
+      insetPadding: const EdgeInsets.all(16),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: p.isDark ? p.accent : AppColors.midnight,
+      linearTrackColor: p.divider,
+      circularTrackColor: Colors.transparent,
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected)
+            ? AppColors.midnight
+            : p.textSecondary,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? p.accent : p.divider,
+      ),
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? p.accent : p.border,
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? p.accent : null,
+      ),
+      checkColor: WidgetStateProperty.all(AppColors.midnight),
+      side: BorderSide(color: p.textSecondary, width: 1.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        backgroundColor: p.surface,
+        foregroundColor: p.textPrimary,
+        selectedBackgroundColor: p.accent,
+        selectedForegroundColor: p.onAccent,
+        side: BorderSide(color: p.border),
+        textStyle: text.labelMedium,
+        shape: shape,
+      ),
+    ),
+    tabBarTheme: TabBarThemeData(
+      labelColor: p.textPrimary,
+      unselectedLabelColor: p.textSecondary,
+      indicatorColor: p.accent,
+      dividerColor: p.divider,
+      labelStyle: text.labelLarge,
+      unselectedLabelStyle: text.labelLarge?.copyWith(
+        fontWeight: FontWeight.w500,
+      ),
+      indicatorSize: TabBarIndicatorSize.label,
+    ),
+    focusColor: p.accent.withValues(alpha: .25),
   );
 }

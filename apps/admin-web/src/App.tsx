@@ -27,7 +27,7 @@ export function Login({ onDone }: { onDone: (s: Session) => void }) {
   }
   return (
     <form className="login" onSubmit={submit}>
-      <div className="brand" style={{ color: "#171717", padding: 0 }}>JOLAY<span>.</span></div>
+      <div className="brand">JOLAY<span>.</span></div>
       <p className="muted">Your City. Your Way. — Staff console</p>
       <label>Phone<input value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" required /></label>
       <label>Password<input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" required /></label>
@@ -48,16 +48,31 @@ export function Shell({ session, onLogout }: { session: Session; onLogout: () =>
     overview: <Overview />, live: <Live />, rides: <Rides />, drivers: <Drivers roles={roles} />, customers: <Customers roles={roles} />,
     payments: <Payments />, deliveries: <Deliveries />, partners: <Partners roles={roles} />, storeorders: <StoreOrders />, incidents: <Incidents />, payouts: <Payouts />, risk: <RiskFlags />, legal: <Legal />, pricing: <Pricing roles={roles} />, promos: <Promos roles={roles} />, security: <Security />, support: <Support />, settings: <Settings />, audit: <Audit />,
   };
+  const visible = mustEnrol ? items.filter((n) => n.id === "security") : items;
+  const current = items.find((n) => n.id === page);
+  let lastGroup = "";
   return (
     <div className="app">
-      <nav className="side">
+      <a className="skip" href="#main">Skip to content</a>
+      <nav className="side" aria-label="Main">
         <div className="brand">JOLAY<span>.</span></div>
-        {(mustEnrol ? items.filter((n) => n.id === "security") : items).map((n) => <button key={n.id} className={n.id === page ? "active" : ""} onClick={() => setPage(n.id)}>{n.label}</button>)}
-        <div className="who">{session.user.fullName}<br />{roles.join(", ")}<br /><button onClick={onLogout}>Sign out</button></div>
+        <div className="brand-sub">Staff console</div>
+        {visible.map((n) => {
+          const head = n.group && n.group !== lastGroup ? <div className="grp" key={`g-${n.group}`}>{n.group}</div> : null;
+          lastGroup = n.group ?? lastGroup;
+          return <span key={n.id} style={{ display: "contents" }}>{head}<button aria-current={n.id === page ? "page" : undefined} onClick={() => setPage(n.id)}>{n.label}</button></span>;
+        })}
+        <div className="who"><b>{session.user.fullName}</b>{roles.join(", ")}<button onClick={onLogout}>Sign out</button></div>
       </nav>
-      <main>{mustEnrol
-        ? <><div className="err" role="alert">Two-factor authentication is required for your role. Set it up to continue; everything else is locked until then.</div><Security onChange={mfa.reload} /></>
-        : P[page]}</main>
+      <div className="content">
+        <header className="topbar">
+          <nav className="crumbs" aria-label="Breadcrumb"><span>Console</span><span aria-hidden="true">/</span>{current?.group && <><span>{current.group}</span><span aria-hidden="true">/</span></>}<span aria-current="page">{mustEnrol ? "My security" : current?.label}</span></nav>
+          <div className="user">{session.user.fullName}</div>
+        </header>
+        <main id="main" tabIndex={-1}>{mustEnrol
+          ? <><div className="err" role="alert">Two-factor authentication is required for your role. Set it up to continue; everything else is locked until then.</div><Security onChange={mfa.reload} /></>
+          : P[page]}</main>
+      </div>
     </div>
   );
 }
