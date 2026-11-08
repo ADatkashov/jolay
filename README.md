@@ -56,6 +56,8 @@ driver, approves the driver, requests a ride, accepts it, drives it and pays.
 
 Audit & roadmap: [CTO_FINAL_AUDIT](docs/CTO_FINAL_AUDIT.md) · [ROADMAP 2027](docs/JOLAY_PRODUCT_ROADMAP_2027.md)
 
+Design: [JOLAY Design Direction](docs/design/JOLAY_DESIGN_DIRECTION.md) ·
+
 Documentation: [ARCHITECTURE](docs/ARCHITECTURE.md) · [DATABASE](docs/DATABASE.md) · [API](docs/API.md) ·
 [DEVELOPMENT](docs/DEVELOPMENT.md) · [DEPLOYMENT](docs/DEPLOYMENT.md) · [SECURITY](docs/SECURITY.md) ·
 [PAYMENT_INTEGRATION](docs/PAYMENT_INTEGRATION.md) · [DISPATCH_ALGORITHM](docs/DISPATCH_ALGORITHM.md) · [BUSINESS_RULES](docs/BUSINESS_RULES.md)
