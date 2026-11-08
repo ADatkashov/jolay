@@ -1,0 +1,53 @@
+# Render Blueprint: backend (Docker) + admin and partner consoles (static sites).
+# Database: Neon (PostgreSQL + PostGIS), created outside Render. Secrets are never stored here:
+# every `sync: false` variable is entered once in the Render dashboard.
+services:
+  - type: web
+    name: jolay-backend
+    runtime: docker
+    region: frankfurt
+    plan: free
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    autoDeploy: true
+    envVars:
+      - { key: SPRING_PROFILES_ACTIVE, value: prod }
+      - { key: JOLAY_PUBLIC_URL, value: "https://jolay-backend.onrender.com" }
+      - { key: JOLAY_DB_URL, value: "jdbc:postgresql://ep-super-bird-ba283eum.c-8.eu-central-1.aws.neon.tech/jolay?sslmode=require" }
+      - { key: JOLAY_DB_USER, value: jolay_owner }
+      - { key: JOLAY_DB_POOL, value: "5" }          # Neon free compute has few connections
+      - { key: JOLAY_CORS_ORIGINS, value: "http://localhost:5173,http://localhost:5174" }  # the static sites proxy /api, so no browser CORS is needed
+      - { key: JOLAY_SMS_PROVIDER, value: log }
+      - { key: JOLAY_SMS_LOG_CODE, value: "false" }
+      - { key: JOLAY_PAYMENT_PROVIDER, value: sandbox }
+      - { key: JOLAY_ALLOW_SANDBOX_PAYMENTS, value: "true" }   # DEMO ONLY: remove once a real payment provider exists
+      - { key: JOLAY_ADMIN_PHONE, value: "+77000000000" }
+      - { key: JOLAY_DB_PASSWORD, sync: false }
+      - { key: JOLAY_JWT_SECRET, sync: false }
+      - { key: JOLAY_ADMIN_PASSWORD, sync: false }
+      - { key: JOLAY_SANDBOX_WEBHOOK_SECRET, sync: false }
+
+  - type: web
+    name: jolay-admin
+    runtime: static
+    rootDir: apps/admin-web
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - { type: rewrite, source: /api/*, destination: https://jolay-backend.onrender.com/api/* }
+      - { type: rewrite, source: /*, destination: /index.html }
+
+  - type: web
+    name: jolay-partner
+    runtime: static
+    rootDir: apps/partner-web
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - { type: rewrite, source: /api/*, destination: https://jolay-backend.onrender.com/api/* }
+      - { type: rewrite, source: /*, destination: /index.html }
