@@ -27,6 +27,7 @@ services:
       - { key: JOLAY_JWT_SECRET, sync: false }
       - { key: JOLAY_ADMIN_PASSWORD, sync: false }
       - { key: JOLAY_SANDBOX_WEBHOOK_SECRET, sync: false }
+      - { key: JOLAY_2GIS_KEY, sync: false }       # 2GIS Places API key: address search + reverse geocoding. Empty = only the 12 seeded places
 
   - type: web
     name: jolay-admin

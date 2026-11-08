@@ -32,6 +32,11 @@ jolay:
   geocoding:
     # Base URL of YOUR OWN Nominatim server (e.g. http://nominatim:8080). Empty = only the seeded places. Do not point this at the public OSM instance.
     nominatim-url: ${JOLAY_NOMINATIM_URL:}
+    # 2GIS Places API key (Suggest + geocode). Takes precedence over Nominatim. Secret: set it in the environment, never commit it.
+    twogis-key: ${JOLAY_2GIS_KEY:}
+    twogis-url: https://catalog.api.2gis.com
+    # Optional 2GIS region id (from the 2GIS Regions API) if Suggest asks for a geographic restriction.
+    twogis-region-id: ${JOLAY_2GIS_REGION_ID:}
     country-codes: kz
     timeout-ms: 1500
     failures-to-open: 3
