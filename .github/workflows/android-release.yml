@@ -1,0 +1,149 @@
+name: Android Release
+
+# Release-signed Android builds of the customer and driver apps, published as a
+# GitHub Release (permanent link, opens straight from a phone; unlike a workflow
+# artifact it is not zipped and does not expire). Run it by hand:
+#   Actions -> Android Release -> Run workflow.
+#
+# One-time setup: add these repository secrets (Settings -> Secrets and variables -> Actions):
+#   ANDROID_KEYSTORE_BASE64    base64 of the release keystore (.jks)
+#   ANDROID_KEYSTORE_PASSWORD  keystore password
+#   ANDROID_KEY_ALIAS          key alias
+#   ANDROID_KEY_PASSWORD       key password
+# Both apps are signed with the same key. Keep the keystore: without it an installed app
+# cannot be updated in place.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Which app to build"
+        required: true
+        type: choice
+        options: [all, customer-app, driver-app]
+        default: all
+      api_base_url:
+        description: "Backend URL baked into the app (no /api/v1 suffix)"
+        required: false
+        type: string
+        default: "https://jolay-backend.onrender.com"
+
+# Needed only to create the release and attach files to it.
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.compute.outputs.matrix }}
+    steps:
+      - id: compute
+        env:
+          APP: ${{ inputs.app }}
+        run: |
+          case "$APP" in
+            customer-app) matrix='{"include":[{"app":"customer-app"}]}' ;;
+            driver-app)   matrix='{"include":[{"app":"driver-app"}]}' ;;
+            *)            matrix='{"include":[{"app":"customer-app"},{"app":"driver-app"}]}' ;;
+          esac
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: release (${{ matrix.app }})
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+
+      - name: Check required secrets are present
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=()
+          [ -z "$KEYSTORE_B64" ] && missing+=("ANDROID_KEYSTORE_BASE64")
+          [ -z "$STORE_PASSWORD" ] && missing+=("ANDROID_KEYSTORE_PASSWORD")
+          [ -z "$KEY_ALIAS" ] && missing+=("ANDROID_KEY_ALIAS")
+          [ -z "$KEY_PASSWORD" ] && missing+=("ANDROID_KEY_PASSWORD")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      # The decoded key lives only in RUNNER_TEMP, never in the checked-out tree.
+      - name: Decode keystore and write key.properties
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keystore"
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keystore/release.jks"
+          cat > apps/${{ matrix.app }}/android/key.properties <<PROPS
+          storeFile=$RUNNER_TEMP/keystore/release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+
+      - name: Read app version
+        id: version
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          v=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d'+' -f1 | tr -d '[:space:]')
+          echo "name=$v" >> "$GITHUB_OUTPUT"
+
+      - name: flutter pub get
+        working-directory: apps/${{ matrix.app }}
+        run: flutter pub get
+
+      - name: Build release APK and AAB
+        working-directory: apps/${{ matrix.app }}
+        env:
+          API_URL: ${{ inputs.api_base_url }}
+        run: |
+          flutter build apk --release --dart-define=JOLAY_API="$API_URL"
+          flutter build appbundle --release --dart-define=JOLAY_API="$API_URL"
+
+      - name: Verify the APK is signed with the release key
+        run: |
+          apk="apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk"
+          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$apk" | grep -E "Signer #1 certificate (DN|SHA-256)"
+
+      - name: Name the outputs
+        run: |
+          mkdir -p release-out
+          cp "apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk" "release-out/jolay-${{ matrix.app }}-${{ steps.version.outputs.name }}.apk"
+          cp "apps/${{ matrix.app }}/build/app/outputs/bundle/release/app-release.aab" "release-out/jolay-${{ matrix.app }}-${{ steps.version.outputs.name }}.aab"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ matrix.app }}-v${{ steps.version.outputs.name }}-${{ github.run_number }}
+          name: "${{ matrix.app }} v${{ steps.version.outputs.name }} (build ${{ github.run_number }})"
+          target_commitish: ${{ github.sha }}
+          files: |
+            release-out/jolay-${{ matrix.app }}-${{ steps.version.outputs.name }}.apk
+            release-out/jolay-${{ matrix.app }}-${{ steps.version.outputs.name }}.aab
+          body: |
+            Release-signed build of `${{ matrix.app }}` from commit `${{ github.sha }}`.
+
+            - **APK**: install directly on an Android phone.
+            - **AAB**: for Google Play Console.
+            - **Backend baked in:** `${{ inputs.api_base_url }}`
+
+      - name: Remove decoded keystore and key.properties
+        if: always()
+        run: |
+          rm -f "apps/${{ matrix.app }}/android/key.properties"
+          rm -rf "$RUNNER_TEMP/keystore"
