@@ -8,6 +8,12 @@ const supportedLocales = [Locale('kk'), Locale('ru'), Locale('en')];
 /// Backend error codes map to `err.<code>`.
 const Map<String, Map<String, String>> _s = {
   'kk': {
+    'nav.steps': 'Бағыт',
+    'nav.estimated': 'Шамамен алынған бағыт',
+    'nav.noSteps': 'Бұрылыс нұсқаулары қолжетімсіз',
+    'nav.m': 'м',
+    'nav.follow': 'Қозғалысты қадағалау',
+    'nav.clientHere': 'Клиент осында',
     'driver.tripLabel': 'Сапар',
     'ride.cancelShort': 'Бас тарту',
     'driver.uploadHint': 'Құжаттың бәрі көрінетін анық сурет жүктеңіз',
@@ -467,6 +473,12 @@ const Map<String, Map<String, String>> _s = {
     'driver.passenger': 'Жолаушы',
   },
   'ru': {
+    'nav.steps': 'Маршрут',
+    'nav.estimated': 'Примерный маршрут',
+    'nav.noSteps': 'Подсказки по поворотам недоступны',
+    'nav.m': 'м',
+    'nav.follow': 'Следить за движением',
+    'nav.clientHere': 'Клиент здесь',
     'driver.tripLabel': 'Поездка',
     'ride.cancelShort': 'Отменить',
     'driver.uploadHint':
@@ -929,6 +941,12 @@ const Map<String, Map<String, String>> _s = {
     'driver.passenger': 'Пассажир',
   },
   'en': {
+    'nav.steps': 'Route',
+    'nav.estimated': 'Approximate route',
+    'nav.noSteps': 'Turn-by-turn directions are not available',
+    'nav.m': 'm',
+    'nav.follow': 'Follow my position',
+    'nav.clientHere': 'Rider is here',
     'driver.tripLabel': 'Trip',
     'ride.cancelShort': 'Cancel',
     'driver.uploadHint': 'Upload a clear photo with the whole document visible',

@@ -122,6 +122,13 @@ class _HomeState extends ConsumerState<DriverHome> {
   LatLng? _pos;
   final _map = MapController();
 
+  // In-app navigation: the road route of the current leg, the rider's dot while they wait, and a camera that follows the driver.
+  NavigationFeed? _navFeed;
+  String? _navRideId, _navStatus;
+  RideNavigation? _nav;
+  LatLng? _customerPos;
+  bool _follow = true;
+
   @override
   void initState() {
     super.initState();
@@ -143,7 +150,42 @@ class _HomeState extends ConsumerState<DriverHome> {
   void dispose() {
     _poll?.cancel();
     _tick?.cancel();
+    _navFeed?.dispose();
     super.dispose();
+  }
+
+  /// Starts/stops the route feed with the active ride and refreshes it when a new leg begins (to the pickup, then to the destination).
+  void _syncNav() {
+    final id = _ride?['id']?.toString();
+    final status = _ride?['status']?.toString();
+    if (id != _navRideId) {
+      _navFeed?.dispose();
+      _navFeed = null;
+      _nav = null;
+      _customerPos = null;
+      _navRideId = id;
+      _navStatus = status;
+      _follow = true;
+      if (id != null) {
+        _navFeed = NavigationFeed(ref.read(apiProvider), id, (n) {
+          if (mounted) setState(() => _nav = n);
+        })..start();
+      }
+    } else if (status != _navStatus) {
+      _navStatus = status;
+      _navFeed?.refresh();
+    }
+  }
+
+  /// While a trip is active the camera stays on the driver until they pan the map themselves.
+  void _followDriver() {
+    final pos = _pos;
+    if (!_follow || _ride == null || pos == null) return;
+    try {
+      _map.move(pos, _map.camera.zoom < 15 ? 16 : _map.camera.zoom);
+    } catch (_) {
+      // the map is not attached yet
+    }
   }
 
   Future<void> _refresh() async {
@@ -174,6 +216,8 @@ class _HomeState extends ConsumerState<DriverHome> {
         if (live != null) _left = (live['seconds_left'] as num).toInt();
         if (pos != null) _pos = LatLng(pos.latitude, pos.longitude);
       });
+      _syncNav();
+      _followDriver();
     } catch (_) {}
   }
 
@@ -246,7 +290,21 @@ class _HomeState extends ConsumerState<DriverHome> {
   @override
   Widget build(BuildContext context) {
     ref.listen(eventsProvider, (_, ev) {
-      if (ev.value != null) _refresh();
+      final e = ev.value;
+      if (e == null) return;
+      if (e.type == 'CUSTOMER_LOCATION_UPDATED') {
+        // the rider's position is a hint for the map only; nothing to re-fetch
+        if (e.data['rideId'] == _ride?['id'] && mounted) {
+          setState(
+            () => _customerPos = LatLng(
+              (e.data['lat'] as num).toDouble(),
+              (e.data['lng'] as num).toDouble(),
+            ),
+          );
+        }
+        return;
+      }
+      _refresh();
     });
     final me = ref.watch(driverMeProvider).value;
     final today = ref.watch(earningsProvider('today')).value;
@@ -265,6 +323,11 @@ class _HomeState extends ConsumerState<DriverHome> {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 14,
+              onPositionChanged: (_, byGesture) {
+                if (byGesture && _follow && _ride != null) {
+                  setState(() => _follow = false);
+                }
+              },
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
@@ -275,6 +338,27 @@ class _HomeState extends ConsumerState<DriverHome> {
                 userAgentPackageName: 'kz.jolay.driver',
                 tileBuilder: p.isDark ? darkModeTileBuilder : null,
               ),
+              if (_ride != null && _nav != null && _nav!.points.length > 1)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: [
+                        for (final (lat, lng) in _nav!.points) LatLng(lat, lng),
+                      ],
+                      strokeWidth: 8,
+                      color: AppColors.midnight,
+                      borderStrokeWidth: 2,
+                      borderColor: Colors.white,
+                    ),
+                    Polyline(
+                      points: [
+                        for (final (lat, lng) in _nav!.points) LatLng(lat, lng),
+                      ],
+                      strokeWidth: 3.5,
+                      color: AppColors.yellow,
+                    ),
+                  ],
+                ),
               MarkerLayer(
                 markers: [
                   if (_pos != null)
@@ -283,6 +367,22 @@ class _HomeState extends ConsumerState<DriverHome> {
                       width: 56,
                       height: 56,
                       child: const UserLocationDot(),
+                    ),
+                  if (_ride != null &&
+                      _customerPos != null &&
+                      _ride!['status'] != 'IN_PROGRESS')
+                    Marker(
+                      point: _customerPos!,
+                      width: 44,
+                      height: 44,
+                      child: Semantics(
+                        label: ref.t('nav.clientHere'),
+                        child: const Icon(
+                          Icons.person_pin_circle_rounded,
+                          size: 44,
+                          color: AppColors.midnight,
+                        ),
+                      ),
                     ),
                   if (_ride != null)
                     Marker(
@@ -469,6 +569,31 @@ class _HomeState extends ConsumerState<DriverHome> {
                       _act('/drivers/offers/${_offer!['offer_id']}/accept'),
                   onDecline: () =>
                       _act('/drivers/offers/${_offer!['offer_id']}/decline'),
+                ),
+              if (_ride != null && !_follow)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: AppIconButton(
+                      key: const Key('follow-driver'),
+                      icon: AppIcons.navigate,
+                      tooltip: ref.t('nav.follow'),
+                      style: AppIconButtonStyle.floating,
+                      onPressed: () {
+                        setState(() => _follow = true);
+                        _followDriver();
+                      },
+                    ),
+                  ),
+                ),
+              if (_ride != null && _nav != null && _nav!.points.length > 1)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: NavSummary(
+                    nav: _nav!,
+                    onTap: () => showNavStepsSheet(context, ref, _nav!),
+                  ),
                 ),
               if (_ride != null)
                 ActiveTripCard(ride: _ride!, busy: _busy, onAct: _act),

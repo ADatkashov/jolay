@@ -671,13 +671,24 @@ class RideTrackScreen extends ConsumerStatefulWidget {
 class _TrackState extends ConsumerState<RideTrackScreen> {
   Ride? _ride;
   bool _failed = false;
-  Timer? _poll;
+  Timer? _poll, _shareTimer;
   LatLng? _driverLive;
+  NavigationFeed? _navFeed;
+  RideNavigation? _nav;
+  String? _lastStatus;
 
   @override
   void initState() {
     super.initState();
     _fetch();
+    // Road route + live ETA of the current leg, and the rider's own position for the driver while the driver is coming.
+    _navFeed = NavigationFeed(ref.read(apiProvider), widget.rideId, (n) {
+      if (mounted) setState(() => _nav = n);
+    })..start();
+    _shareTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _shareLocation(),
+    );
     // Polling is the safety net; WebSocket events (below) make updates instant. REST is the source of truth.
     _poll = Timer.periodic(const Duration(seconds: 4), (_) {
       if (_ride?.isTerminal != true || _ride?.paymentStatus == 'PENDING') {
@@ -689,7 +700,29 @@ class _TrackState extends ConsumerState<RideTrackScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _shareTimer?.cancel();
+    _navFeed?.dispose();
     super.dispose();
+  }
+
+  /// The driver sees the rider on their map only while coming to the pickup; nothing is sent once the trip starts.
+  Future<void> _shareLocation() async {
+    final s = _ride?.status;
+    if (s != 'DRIVER_ASSIGNED' && s != 'DRIVER_ARRIVING' && s != 'DRIVER_ARRIVED') {
+      return;
+    }
+    try {
+      final p = await LocationService.current();
+      if (p == null || !mounted) return;
+      await ref
+          .read(apiProvider)
+          .post(
+            '/rides/${widget.rideId}/customer-location',
+            body: {'lat': p.lat, 'lng': p.lng},
+          );
+    } catch (_) {
+      // best effort: the driver simply does not see the rider's dot
+    }
   }
 
   Future<void> _fetch() async {
@@ -698,10 +731,14 @@ class _TrackState extends ConsumerState<RideTrackScreen> {
           await ref.read(apiProvider).get('/rides/${widget.rideId}')
               as Map<String, dynamic>;
       if (mounted) {
+        final ride = Ride.fromJson(j);
+        final changed = _lastStatus != null && _lastStatus != ride.status;
+        _lastStatus = ride.status;
         setState(() {
-          _ride = Ride.fromJson(j);
+          _ride = ride;
           _failed = false;
         });
+        if (changed) _navFeed?.refresh(); // a new leg starts: route to pickup, then to the destination
       }
     } catch (_) {
       if (mounted && _ride == null) setState(() => _failed = true);
@@ -766,7 +803,12 @@ class _TrackState extends ConsumerState<RideTrackScreen> {
       'DRIVER_ASSIGNED' ||
       'DRIVER_ARRIVING' ||
       'DRIVER_ARRIVED' ||
-      'IN_PROGRESS' => _Active(ride: r, live: _driverLive, onCancel: _cancel),
+      'IN_PROGRESS' => _Active(
+        ride: r,
+        live: _driverLive,
+        nav: _nav,
+        onCancel: _cancel,
+      ),
       'COMPLETED' => _Completed(ride: r, onRefresh: _fetch),
       _ => _Ended(ride: r),
     };
@@ -1000,10 +1042,12 @@ class _SearchingState extends ConsumerState<_Searching>
 class _Active extends ConsumerWidget {
   final Ride ride;
   final LatLng? live;
+  final RideNavigation? nav;
   final VoidCallback onCancel;
   const _Active({
     required this.ride,
     required this.live,
+    required this.nav,
     required this.onCancel,
   });
 
@@ -1048,7 +1092,10 @@ class _Active extends ConsumerWidget {
                 dropoffMarker(drop),
                 if (driverPos != null) carMarker(driverPos),
               ],
-              route: [pickup, drop],
+              // the real road route of the current leg; a straight line until the server has one
+              route: nav != null && nav!.points.length > 1
+                  ? [for (final (lat, lng) in nav!.points) LatLng(lat, lng)]
+                  : [pickup, drop],
             ),
           ),
           SafeArea(
@@ -1117,6 +1164,10 @@ class _Active extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   _StatusSteps(step: _step),
+                  if (nav != null && nav!.points.length > 1) ...[
+                    const SizedBox(height: 12),
+                    NavSummary(nav: nav!, showStep: false),
+                  ],
                   if (d != null) ...[
                     const SizedBox(height: 16),
                     Row(

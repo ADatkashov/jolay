@@ -31,6 +31,7 @@ Everything map-related uses **2GIS**; OpenStreetMap, Nominatim and OSRM are not 
 | Address search | Suggest `/3.0/suggests` | `GET /api/v1/geo/places` |
 | Address of a point (pickup, map picker) | `/3.0/items/geocode` | `GET /api/v1/geo/reverse` |
 | Route distance / ETA, fare estimate | Routing `/routing/7.0.0/global` | used internally (`routeSource=2GIS`) |
+| Navigation inside the apps (route line, ETA, manoeuvres) | Routing `/routing/7.0.0/global` (geometry + `maneuvers`) | `GET /api/v1/rides/{id}/navigation` (one routing request per ride and leg every ~12 s, shared by rider and driver; watch the quota) |
 | Map tiles for all apps | Raster Tiles `tile{n}.maps.2gis.com/v2/tiles/{tileset}/{z}/{x}/{y}.png` | `GET /api/v1/geo/tiles/{z}/{x}/{y}.png` (public, cached 1 day, in-memory LRU of `jolay.maps.cache-tiles` tiles) |
 
 The apps never see the key: the customer and driver apps and the admin/partner sites load tiles from the backend (`--dart-define=TILE_URL=...` / `VITE_TILE_URL` only override that). Tile quota is billed per tile, so keep an eye on usage; put a CDN in front of `/api/v1/geo/tiles` if traffic grows.

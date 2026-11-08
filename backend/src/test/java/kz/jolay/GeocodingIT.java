@@ -40,6 +40,7 @@ class GeocodingIT extends IntegrationTestBase {
     static void props(DynamicPropertyRegistry r) {
         r.add("jolay.geocoding.twogis-key", () -> "test-key");
         r.add("jolay.geocoding.twogis-url", () -> "http://127.0.0.1:" + stub.getAddress().getPort());
+        r.add("jolay.routing.twogis-url", () -> "http://127.0.0.1:" + stub.getAddress().getPort());   // no real 2GIS calls from tests: the stub has no route, so the estimate is used
     }
 
     @AfterAll static void stopStub() { stub.stop(0); }
