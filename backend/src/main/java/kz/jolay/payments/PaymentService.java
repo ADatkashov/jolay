@@ -40,6 +40,13 @@ public class PaymentService {
         this.providers = providers.stream().collect(java.util.stream.Collectors.toMap(PaymentProvider::name, p -> p));
     }
 
+    /** False when card payments are switched off (jolay.payments.provider=none): cash and wallet rides keep working. */
+    public boolean cardEnabled() { return !"none".equals(defaultProvider); }
+
+    private void requireCardEnabled() {
+        if (!cardEnabled()) throw ApiException.unavailable("card_payments_unavailable", "Card payments are not available");
+    }
+
     public PaymentProvider provider(String name) {
         PaymentProvider p = providers.get(name);
         if (p == null) throw ApiException.notFound("unknown_provider", "Unknown payment provider");
@@ -129,6 +136,7 @@ public class PaymentService {
             return new PaymentView(null, "SUCCEEDED", "RIDE", total, "wallet", null, rideId);
         }
         if (!"CARD".equals(method)) throw ApiException.badRequest("invalid_method", "Unsupported payment method for this ride");
+        requireCardEnabled();
         var existing = jdbc.sql("SELECT id, status, provider_ref, provider FROM payment_transactions WHERE ride_id=:r AND status IN ('PENDING','SUCCEEDED')").param("r", rideId).query().listOfRows();
         if (!existing.isEmpty()) {
             var e = existing.get(0);
@@ -151,6 +159,7 @@ public class PaymentService {
     }
 
     private PaymentView createCardPayment(UUID userId, String purpose, UUID rideId, BigDecimal amount, String idemKey, String desc) {
+        requireCardEnabled();
         PaymentProvider p = provider(defaultProvider);
         UUID id = UUID.randomUUID();
         PaymentProvider.Initiation init = p.initiate(id, amount, "KZT", desc);
@@ -199,7 +208,8 @@ public class PaymentService {
         UUID id = (UUID) pay.get("id");
         BigDecimal amount = (BigDecimal) pay.get("amount");
         if ("SUCCEEDED".equalsIgnoreCase(status)) {
-            BigDecimal paid = new BigDecimal(n.path("amount").asText("-1"));
+            BigDecimal paid;
+            try { paid = new BigDecimal(n.path("amount").asText("-1")); } catch (NumberFormatException e) { paid = BigDecimal.valueOf(-1); }
             if (paid.compareTo(amount) != 0) {          // never accept a different amount than the one we asked for
                 fail(id, pay, "amount_mismatch");
                 return "amount_mismatch";

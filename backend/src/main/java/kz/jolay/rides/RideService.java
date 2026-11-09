@@ -110,6 +110,7 @@ public class RideService {
         BigDecimal promoDiscount = promo == null ? Money.ZERO : promo.discountFor(fare.total());
         if (promo != null && promoDiscount.signum() == 0) throw ApiException.badRequest("promo_min_fare", "The fare is below the minimum for this promo code");
 
+        if ("CARD".equals(r.paymentMethod()) && !payments.cardEnabled()) throw ApiException.unavailable("card_payments_unavailable", "Card payments are not available");
         if ("WALLET".equals(r.paymentMethod())) {
             BigDecimal bal = ledger.balance(ledger.userAccount(customerId, "CUSTOMER_WALLET"));
             if (bal.compareTo(fare.total().subtract(promoDiscount)) < 0) throw ApiException.conflict("insufficient_funds", "Wallet balance is lower than the estimated fare");

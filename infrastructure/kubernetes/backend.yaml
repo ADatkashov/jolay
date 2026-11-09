@@ -1,11 +1,12 @@
 # Kubernetes-ready manifests (apply with: kubectl apply -f infrastructure/kubernetes/). Secrets are NOT included:
 #   kubectl create secret generic jolay-secrets --from-literal=JOLAY_DB_PASSWORD=... --from-literal=JOLAY_JWT_SECRET=... \
-#     --from-literal=JOLAY_ADMIN_PASSWORD=... --from-literal=JOLAY_SANDBOX_WEBHOOK_SECRET=...
+#     --from-literal=JOLAY_ADMIN_PASSWORD=... --from-literal=JOLAY_WHATSAPP_TOKEN=...
+# Also set (non-secret) JOLAY_WHATSAPP_ENABLED / _PHONE_NUMBER_ID / _TEMPLATE / _OTP_TEMPLATE below. No card payments until a real adapter exists.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: jolay-backend, labels: { app: jolay-backend } }
 spec:
-  replicas: 2
+  replicas: 1   # MUST stay 1: WebSocket events, rate limits and login lockout live in process memory (docs/ARCHITECTURE.md#scaling). Do not scale out before shared state exists.
   selector: { matchLabels: { app: jolay-backend } }
   template:
     metadata:
@@ -22,7 +23,11 @@ spec:
             - { name: JOLAY_DB_URL, value: "jdbc:postgresql://postgres:5432/jolay" }
             - { name: JOLAY_DB_USER, value: jolay }
             - { name: JOLAY_CORS_ORIGINS, value: "https://admin.example.kz" }
+            - { name: JOLAY_PAYMENT_PROVIDER, value: none }          # cash + wallet only; never "sandbox" on a cluster other people can reach
+            - { name: JOLAY_WHATSAPP_ENABLED, value: "true" }        # OTP/SOS channel; startup is refused without a working channel
             - { name: JOLAY_PUBLIC_URL, value: "https://api.example.kz" }   # public https address of the API; used in links sent by SMS (startup is refused without it)
+          # Driver documents (JOLAY_DOCS_DIR=/data/documents) are NOT persisted by this manifest: mount a durable, encrypted volume at that path
+          # (or move to object storage) before real driver documents are uploaded. See docs/DEPLOYMENT.md#driver-documents.
           resources: { requests: { cpu: 500m, memory: 768Mi }, limits: { memory: 1536Mi } }
           readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 8081 }, periodSeconds: 5 }   # prod: actuator is on the private management port
           livenessProbe: { httpGet: { path: /actuator/health/liveness, port: 8081 }, initialDelaySeconds: 30, periodSeconds: 10 }

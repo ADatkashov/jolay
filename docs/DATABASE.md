@@ -18,7 +18,7 @@ rides: `rides`, `ride_status_history`, `ride_offers`, `ride_locations`, `ride_fa
 money: `accounts`, `ledger_transactions`, `ledger_entries`, `payment_transactions`, `payment_webhook_events`, `payment_refunds`, `payouts` ·
 support: `support_tickets`, `support_messages`.
 
-Not created yet (from the brief): delivery_*, partners/stores/products, referral_codes, promotions, commissions (commission is a column of `pricing_rules` / `ride_fares`), driver_vehicle_assignments (one active vehicle per driver for now).
+Added by later migrations (see the list above and `src/main/resources/db/migration`): delivery, marketplace (partners/stores/products/orders), staff MFA, referrals, promo codes, peak windows, tariff zones, incidents, risk flags. Still not modelled: a separate commissions table (commission is a column of `pricing_rules` / `ride_fares`) and driver_vehicle_assignments (one active vehicle per driver for now).
 
 ## Integrity rules enforced by the database
 | Rule | Mechanism |

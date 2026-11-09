@@ -45,6 +45,18 @@ class PaymentLedgerIT extends IntegrationTestBase {
     }
 
     @Test
+    void malformedOrMissingAmountIsRejectedWithoutCrediting() {
+        Session c = customer();
+        Resp t = post("/api/v1/wallet/top-ups", c.token(), Map.of("amount", 3000));
+        String ref = jdbc.sql("SELECT provider_ref FROM payment_transactions WHERE id=:i::uuid").param("i", t.s("id")).query(String.class).single();
+        String garbage = body("evt-g", ref, "SUCCEEDED", "not-a-number");
+        assertEquals("amount_mismatch", webhook(garbage, sign(garbage)).s("result"));
+        assertEquals(0, balance(c).compareTo(BigDecimal.ZERO));
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM ledger_transactions WHERE tx_type='TOPUP'").query(Integer.class).single());
+        assertLedgerBalanced();
+    }
+
+    @Test
     void failedPaymentLeavesRideUnpaidAndCanBeRetriedWithAnotherMethod() {
         Session c = customer(); Session d = driver("ECONOMY", 43.2336, 76.9568);
         String rideId = requestRide(c, "ECONOMY", "CARD").s("id");

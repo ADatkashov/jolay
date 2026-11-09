@@ -16,9 +16,13 @@ public class TestConfig {
     /** Every SMS sent during a test: {phone, text}. */
     public static final java.util.List<String[]> SENT = new java.util.concurrent.CopyOnWriteArrayList<>();
 
+    /** Set to true to simulate a gateway outage. */
+    public static volatile boolean FAIL_SMS;
+
     @Bean @Primary
     SmsSender capturingSms() {
         return (phone, text) -> {
+            if (FAIL_SMS) throw new IllegalStateException("gateway down");
             SENT.add(new String[]{phone, text});
             Matcher m = Pattern.compile("(\\d{6})").matcher(text);
             if (m.find()) OTPS.put(phone, m.group(1));

@@ -20,7 +20,7 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Driver and partner payouts (hold → paid/rejected through the ledger; V9), hourly reconciliation job + metric | ✅ | bank transfer itself is manual; no bank integration |
 | Ratings, support tickets/chat (REST + notification event), notifications (dedupe), audit log | ✅ | |
 | WebSocket events with reconnect hints | ✅ | integration test: token-checked handshake, ping/pong, per-user delivery after commit, multiple devices |
-| Driver documents upload (type/size/magic-byte checks, admin-only download) | 🟡 | |
+| Driver documents upload (type/size/magic-byte checks, per-driver cap, path containment, admin-only audited download) | ✅ | **storage is local disk: unencrypted, unscanned, not durable on containers without a volume** — production blocker (docs/DEPLOYMENT.md#driver-documents) |
 | Account deletion (anonymisation) | ✅ | legal retention rules need counsel review |
 | JOLAY Express — parcel delivery (tariffs by size/weight, courier dispatch, offers, pickup/handover with recipient code and brute-force lock, cash/wallet settlement through the ledger, tracking number + public status, rating, admin list) | ✅ | card payment for deliveries ⛔; courier cancellation fees ⛔; |
 | Push notifications | 🧪 | localized texts + fan-out implemented; delivery is a DEV MOCK (`push_outbox`) until an FCM service account is configured; FCM adapter tested only against a local stub; apps register a MOCK per-install token (`MockPushTokenSource`, platform `mock`) after sign-in; a Firebase-backed `PushTokenSource` is still to be supplied |
@@ -28,7 +28,8 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 | Trip sharing (V14): tokenised public read-only link + viewer page, no phones/fares, live position only while active, revocable, expires after a grace period; "Share" button in the customer app copies the link | ✅ | no push/SMS to a chosen contact (needs a real SMS gateway) |
 | Emergency contacts (V15, up to 3 per customer): SOS during a ride texts each contact a live trip link; best effort, never blocks the SOS; repeated presses do not re-send. Customer app: Profile → Trusted contacts | ✅ | SMS goes through `SmsSender` = **mock** until a real gateway exists 🧪 |
 | Risk flags (7 rules, human review, no auto-suspension) | ✅ | thresholds are uncalibrated defaults |
-| FCM push, real SMS gateway | ⛔ | interfaces exist (`SmsSender`, `Notifier`) |
+| Real SMS gateway, verified FCM push | ⛔ | interfaces exist (`SmsSender`, `Notifier`); WhatsApp OTP adapter exists but is unverified against a live account |
+| Multi-instance operation (shared rate limits, lockout, realtime) | ⛔ | single instance only (docs/ARCHITECTURE.md#scaling-one-backend-instance-only) |
 
 ## Apps
 | App | Status |
@@ -47,15 +48,16 @@ Legend: ✅ implemented **and** covered by automated tests · 🟡 implemented, 
 ## Mocks (owner's part — to be replaced when accounts/keys/contracts exist)
 | Area | What runs today | To go live |
 |---|---|---|
-| SMS / OTP | `LogSmsSender` (code in the log only when `JOLAY_SMS_LOG_CODE=true`) | provide a real `SmsSender` bean (gateway contract + credentials) |
+| SMS / OTP | WhatsApp Cloud API is the primary channel (`JOLAY_WHATSAPP_*`, authentication template with Copy code button; tested only against a local stub, **never against a live Meta account**); `LogSmsSender` is the development fallback and delivers nothing (code in the log only when `JOLAY_SMS_LOG_CODE=true`). The `prod` profile refuses to start with no delivering channel | Meta account, approved templates; a real `SmsSender` bean named `productionSmsSender` for people without WhatsApp; handle Meta status webhooks |
 | Push | `DevPushSender` → `push_outbox`; `FcmPushSender` auto-activates with `JOLAY_FCM_SERVICE_ACCOUNT_FILE` | Firebase project, service account, `google-services.json` / APNs key; implement `PushTokenSource` with `firebase_messaging` and override `pushTokenSourceProvider` in each app's main() |
 | Maps / routing / geocoding | `EstimatedRouteProvider` (straight line × factor, flagged `ESTIMATED`), 12 seeded places, no map tiles | set `JOLAY_2GIS_KEY` (see DEPLOYMENT.md): address search, routing and map tiles all come from 2GIS through the backend; confirm the 2GIS terms (raster tiles in flutter_map/Leaflet, attribution, result storage) before launch |
-| Card payments | `SandboxPaymentProvider` (signed callbacks, no real money; refused in `prod` unless explicitly allowed) | merchant contract + adapter (docs/PAYMENT_INTEGRATION.md) |
+| Card payments | `SandboxPaymentProvider` exists only with `JOLAY_PAYMENT_PROVIDER=sandbox` (signed callbacks, no real money; refused in `prod` unless the closed-demo flag and a strong secret are set). Public deployments run `JOLAY_PAYMENT_PROVIDER=none`: card rides and top-ups answer 503, cash and wallet work | merchant contract + adapter (docs/PAYMENT_INTEGRATION.md) |
 | Bank payouts | finance transfers manually, records the reference | bank API / payout provider |
 | Legal texts | none (apps show "not published yet") | counsel's texts via Admin → Legal documents |
-| Store accounts / signing | debug signing | Google Play / Apple accounts and release keys |
+| Store accounts / signing | local builds use the debug key only with `JOLAY_ALLOW_DEBUG_SIGNED_RELEASE=true`; release tasks otherwise fail without `android/key.properties`; the manual release workflow verifies APK and AAB signatures (Gradle guard unverified: no Android SDK in the audit environment) | Google Play / Apple accounts and release keys |
 
 ## Known limitations
+* **Not production-ready.** Open blockers are listed in docs/DEPLOYMENT.md#production-readiness. The Render Blueprint is a pilot/staging template with card payments off.
 * Map tiles are 2GIS raster tiles proxied by the backend (`/api/v1/geo/tiles`); without `JOLAY_2GIS_KEY` the map is blank. 2GIS does not guarantee third-party libraries work with raster tiles.
 * The apps' **screens** have not been exercised on a device or against a live backend (widget tests use a faked API). What *is* verified live: the apps' real data layer (ApiClient, AuthController, WebSocket client, the customer app's providers and models, plus the keys the driver app reads) against the real backend — sign-up/OTP, driver onboarding and approval, a full cash ride with the WebSocket event, Express parcel with handover code, wallet top-up, a promo + peak + zone-surcharge wallet ride, SOS, logout (`scripts/live-contract-test.sh`, CI job `live-contract`). It does not cover layout, navigation, permissions, background location or push.
 * Kazakh/Russian strings were written by the model and need review by native speakers.

@@ -11,6 +11,16 @@ val keystoreProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// A release build must never silently fall back to the debug key: such an APK/AAB cannot be published, and an app installed from it cannot be
+// updated by a properly signed build. Local experiments can opt out with JOLAY_ALLOW_DEBUG_SIGNED_RELEASE=true.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { it.project == project && (it.name == "assembleRelease" || it.name == "bundleRelease") }
+    if (buildsRelease && !keystoreProperties.containsKey("storeFile") && System.getenv("JOLAY_ALLOW_DEBUG_SIGNED_RELEASE") != "true") {
+        throw GradleException("Release build without android/key.properties would be signed with the DEBUG key. Provide the release keystore " +
+            "(see .github/workflows/android-release.yml) or set JOLAY_ALLOW_DEBUG_SIGNED_RELEASE=true for a local, unpublishable build.")
+    }
+}
+
 android {
     namespace = "kz.jolay.driver"
     compileSdk = flutter.compileSdkVersion
@@ -49,7 +59,7 @@ android {
 
     buildTypes {
         release {
-            // Release signing comes from android/key.properties (git-ignored). Without it the build uses the debug key.
+            // Release signing comes from android/key.properties (git-ignored). Without it, release tasks fail (see the guard above); the debug key is only a local opt-in.
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }

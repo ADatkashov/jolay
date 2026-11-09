@@ -65,7 +65,7 @@ jolay:
     login-max-failures: 5
     login-lockout: PT15M
   sms:
-    provider: ${JOLAY_SMS_PROVIDER:log}      # log | (add provider adapter)
+    # No gateway switch here: an SMS gateway is a SmsSender bean named productionSmsSender (see docs/DEPLOYMENT.md). Without one, only the development log sender exists.
     log-code: ${JOLAY_SMS_LOG_CODE:false}    # development only: write OTP to log
   whatsapp:
     # WhatsApp is the PRIMARY channel for OTP/SOS texts; the SMS sender above is used only when WhatsApp cannot deliver (no WhatsApp, error, timeout).

@@ -1,6 +1,7 @@
 package kz.jolay.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,6 +30,8 @@ public class MessagingConfig {
     SmsSender whatsAppFirstSender(WhatsAppClient client, BeanFactory beans) {
         // The SMS gateway: a production adapter named "productionSmsSender" when present, otherwise the development log sender.
         SmsSender sms = beans.getBean(beans.containsBean("productionSmsSender") ? "productionSmsSender" : "smsGateway", SmsSender.class);
+        if (!sms.deliversMessages())
+            LoggerFactory.getLogger(MessagingConfig.class).warn("WhatsApp is the only working OTP/SOS channel: no SMS gateway is configured, so people without WhatsApp cannot receive codes");
         return new WhatsAppFirstSender(client, sms);
     }
 }

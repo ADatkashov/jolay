@@ -17,6 +17,8 @@ public class LogSmsSender implements SmsSender {
     private final boolean logCode;
     public LogSmsSender(@Value("${jolay.sms.log-code:false}") boolean logCode) { this.logCode = logCode; }
 
+    @Override public boolean deliversMessages() { return false; }
+
     @Override public void send(String phone, String text) {
         String masked = phone.length() > 6 ? phone.substring(0, 4) + "****" + phone.substring(phone.length() - 2) : "****";
         if (logCode) log.warn("[DEV SMS] to={} text={}", masked, text);
