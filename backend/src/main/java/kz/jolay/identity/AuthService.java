@@ -117,7 +117,7 @@ public class AuthService {
         jdbc.sql("INSERT INTO otp_verifications(phone,purpose,code_hash,expires_at) VALUES (:p,:pu,:h,:e)")
                 .param("p", phone).param("pu", purpose).param("h", otpHash(phone, code.toString()))
                 .param("e", OffsetDateTime.now(ZoneOffset.UTC).plus(props.otpTtl())).update();
-        sms.send(phone, "JOLAY: " + code + " - your verification code. Do not share it.");
+        sms.sendOtp(phone, code.toString());
     }
 
     /** Verifies and consumes an OTP. Failed attempts are committed (noRollbackFor) so the limit is enforced. */

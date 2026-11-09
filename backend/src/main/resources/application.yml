@@ -73,7 +73,8 @@ jolay:
     base-url: ${JOLAY_WHATSAPP_BASE_URL:https://graph.facebook.com/v21.0}
     phone-number-id: ${JOLAY_WHATSAPP_PHONE_NUMBER_ID:}
     token: ${JOLAY_WHATSAPP_TOKEN:}
-    template: ${JOLAY_WHATSAPP_TEMPLATE:}    # approved template whose body is exactly {{1}}
+    template: ${JOLAY_WHATSAPP_TEMPLATE:}    # approved UTILITY template whose body is exactly {{1}} (SOS alerts)
+    otp-template: ${JOLAY_WHATSAPP_OTP_TEMPLATE:}   # approved AUTHENTICATION template with a Copy code button (OTP); empty = OTP via the generic template
     language: ${JOLAY_WHATSAPP_LANGUAGE:ru}
   payments:
     provider: ${JOLAY_PAYMENT_PROVIDER:sandbox}

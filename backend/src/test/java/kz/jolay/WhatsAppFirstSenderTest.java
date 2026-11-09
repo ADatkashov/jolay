@@ -36,7 +36,7 @@ class WhatsAppFirstSenderTest {
     @AfterEach void stop() { server.stop(0); }
 
     private WhatsAppFirstSender sender(List<String> smsOut) {
-        var client = new WhatsAppClient("http://127.0.0.1:" + server.getAddress().getPort(), "PNID", "tok", "otp_tpl", "ru", Duration.ofSeconds(2), new ObjectMapper());
+        var client = new WhatsAppClient("http://127.0.0.1:" + server.getAddress().getPort(), "PNID", "tok", "otp_tpl", "auth_tpl", "ru", Duration.ofSeconds(2), new ObjectMapper());
         return new WhatsAppFirstSender(client, (phone, text) -> smsOut.add(phone + "|" + text));
     }
 
@@ -48,6 +48,24 @@ class WhatsAppFirstSenderTest {
         assertTrue(lastBody.get().contains("\"to\":\"77001234567\""));
         assertTrue(lastBody.get().contains("otp_tpl"));
         assertFalse(lastBody.get().contains("\\n"), "newlines are not allowed in template variables");
+    }
+
+    @Test void otpUsesAuthenticationTemplateWithCodeInBodyAndCopyButton() {
+        status = 200; var sms = new ArrayList<String>();
+        sender(sms).sendOtp("+77001234567", "482913");
+        assertTrue(sms.isEmpty());
+        String b = lastBody.get();
+        assertTrue(b.contains("auth_tpl"));
+        assertFalse(b.contains("otp_tpl"));
+        assertTrue(b.contains("\"sub_type\":\"url\""));
+        assertEquals(2, b.split("482913", -1).length - 1, "code goes to the body and to the Copy code button");
+    }
+
+    @Test void otpFallsBackToSmsWithPlainText() {
+        status = 400; var sms = new ArrayList<String>();
+        sender(sms).sendOtp("+77001234567", "482913");
+        assertEquals(1, sms.size());
+        assertTrue(sms.get(0).contains("482913"));
     }
 
     @Test void numberWithoutWhatsAppFallsBackToSms() {

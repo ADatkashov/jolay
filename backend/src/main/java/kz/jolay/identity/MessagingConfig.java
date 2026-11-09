@@ -17,12 +17,12 @@ public class MessagingConfig {
 
     @Bean
     WhatsAppClient whatsAppClient(@Value("${jolay.whatsapp.base-url}") String baseUrl, @Value("${jolay.whatsapp.phone-number-id:}") String phoneNumberId,
-                                  @Value("${jolay.whatsapp.token:}") String token, @Value("${jolay.whatsapp.template:}") String template,
+                                  @Value("${jolay.whatsapp.token:}") String token, @Value("${jolay.whatsapp.template:}") String template, @Value("${jolay.whatsapp.otp-template:}") String otpTemplate,
                                   @Value("${jolay.whatsapp.language:ru}") String language, @Value("${jolay.whatsapp.timeout:PT5S}") Duration timeout,
                                   ObjectMapper mapper) {
         if (phoneNumberId.isBlank() || token.isBlank() || template.isBlank())
             throw new IllegalStateException("jolay.whatsapp.enabled=true requires JOLAY_WHATSAPP_PHONE_NUMBER_ID, JOLAY_WHATSAPP_TOKEN and JOLAY_WHATSAPP_TEMPLATE");
-        return new WhatsAppClient(baseUrl, phoneNumberId, token, template, language, timeout, mapper);
+        return new WhatsAppClient(baseUrl, phoneNumberId, token, template, otpTemplate, language, timeout, mapper);
     }
 
     @Bean @Primary
