@@ -354,54 +354,62 @@ class _HomeState extends ConsumerState<HomeTab>
                     ? Icon(AppIcons.myLocation, size: 18, color: p.success)
                     : null,
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ServiceTile(
-                      key: const Key('tile-ride'),
-                      icon: AppIcons.ride,
-                      label: ref.t('service.ride'),
-                      sub: ref.t('service.rideSub'),
-                      primary: true,
-                      onTap: () => context.push('/ride/destination'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _ServiceTile(
-                      key: const Key('tile-order'),
-                      icon: AppIcons.order,
-                      label: ref.t('service.order'),
-                      sub: ref.t('service.orderSub'),
-                      onTap: () => context.push('/shops'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _ServiceTile(
-                      key: const Key('tile-send'),
-                      icon: AppIcons.send,
-                      label: ref.t('service.send'),
-                      sub: ref.t('service.sendSub'),
-                      onTap: () => context.push('/express/new'),
-                    ),
-                  ),
-                ],
-              ),
+              // Collapsing hides the service tiles and shortcuts, leaving only the search field, so the map gets
+              // ~200 dp back (the handle works even when there are no saved places yet).
               AnimatedSize(
                 duration: context.motion(AppDurations.base),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topCenter,
                 child: _shortcutsOpen
-                    ? _Shortcuts(
-                        saved: saved,
-                        recent: recent,
-                        onPick: _go,
-                        onRetry: () {
-                          ref.invalidate(recentDestinationsProvider);
-                          ref.invalidate(savedAddressesProvider);
-                        },
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _ServiceTile(
+                                  key: const Key('tile-ride'),
+                                  icon: AppIcons.ride,
+                                  label: ref.t('service.ride'),
+                                  sub: ref.t('service.rideSub'),
+                                  primary: true,
+                                  onTap: () =>
+                                      context.push('/ride/destination'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ServiceTile(
+                                  key: const Key('tile-order'),
+                                  icon: AppIcons.order,
+                                  label: ref.t('service.order'),
+                                  sub: ref.t('service.orderSub'),
+                                  onTap: () => context.push('/shops'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ServiceTile(
+                                  key: const Key('tile-send'),
+                                  icon: AppIcons.send,
+                                  label: ref.t('service.send'),
+                                  sub: ref.t('service.sendSub'),
+                                  onTap: () => context.push('/express/new'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          _Shortcuts(
+                            saved: saved,
+                            recent: recent,
+                            onPick: _go,
+                            onRetry: () {
+                              ref.invalidate(recentDestinationsProvider);
+                              ref.invalidate(savedAddressesProvider);
+                            },
+                          ),
+                        ],
                       )
                     : const SizedBox(width: double.infinity),
               ),
