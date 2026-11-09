@@ -7,7 +7,7 @@ docker compose up -d --build
 docker compose ps && curl -s localhost:8080/actuator/health/readiness
 ```
 Compose is a **development** stack (dev OTP logging, default ports). For production:
-* run the backend with `SPRING_PROFILES_ACTIVE=prod` (JSON/ECS logs, OTP logging impossible), `JOLAY_SMS_LOG_CODE=false`, a real `SmsSender`, and a non-sandbox payment provider;
+* run the backend with `SPRING_PROFILES_ACTIVE=prod` (JSON/ECS logs, OTP logging impossible), `JOLAY_SMS_LOG_CODE=false`, a real `SmsSender` (the fallback channel) and WhatsApp as the primary channel (`JOLAY_WHATSAPP_ENABLED=true`, `JOLAY_WHATSAPP_PHONE_NUMBER_ID`, `JOLAY_WHATSAPP_TOKEN`, `JOLAY_WHATSAPP_TEMPLATE` — an approved Meta template whose body is `{{1}}`; OTP and SOS texts go to WhatsApp first and to SMS only if WhatsApp cannot deliver; asynchronous "undeliverable" status webhooks are not handled yet), and a non-sandbox payment provider;
 * put TLS termination + rate limiting in front (nginx/ingress), terminate `wss` at the same host;
 * use a managed PostgreSQL with PostGIS, daily backups (`scripts/backup-db.sh`), point-in-time recovery, and test restores.
 

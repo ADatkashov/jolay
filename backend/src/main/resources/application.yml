@@ -67,6 +67,14 @@ jolay:
   sms:
     provider: ${JOLAY_SMS_PROVIDER:log}      # log | (add provider adapter)
     log-code: ${JOLAY_SMS_LOG_CODE:false}    # development only: write OTP to log
+  whatsapp:
+    # WhatsApp is the PRIMARY channel for OTP/SOS texts; the SMS sender above is used only when WhatsApp cannot deliver (no WhatsApp, error, timeout).
+    enabled: ${JOLAY_WHATSAPP_ENABLED:false}
+    base-url: ${JOLAY_WHATSAPP_BASE_URL:https://graph.facebook.com/v21.0}
+    phone-number-id: ${JOLAY_WHATSAPP_PHONE_NUMBER_ID:}
+    token: ${JOLAY_WHATSAPP_TOKEN:}
+    template: ${JOLAY_WHATSAPP_TEMPLATE:}    # approved template whose body is exactly {{1}}
+    language: ${JOLAY_WHATSAPP_LANGUAGE:ru}
   payments:
     provider: ${JOLAY_PAYMENT_PROVIDER:sandbox}
     sandbox-webhook-secret: ${JOLAY_SANDBOX_WEBHOOK_SECRET:dev-sandbox-secret}
