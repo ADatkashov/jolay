@@ -28,16 +28,33 @@ void main() {
         );
   });
 
-  Future<void> pumpHome(WidgetTester t, Locale l, {double scale = 1}) async {
+  Future<void> pumpHome(
+    WidgetTester t,
+    Locale l, {
+    double scale = 1,
+    bool withPlaces = true,
+  }) async {
     t.view.physicalSize = const Size(320, 640);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     final api = FakeApi({
       'GET /rides/active': null,
-      'GET /customers/me/addresses': [
-        {'name': 'Home', 'address': 'Abay 10', 'lat': 43.24, 'lng': 76.95},
-        {'name': 'Work', 'address': 'Dostyk 5', 'lat': 43.23, 'lng': 76.96},
-      ],
+      'GET /customers/me/addresses': !withPlaces
+          ? <dynamic>[]
+          : [
+              {
+                'name': 'Home',
+                'address': 'Abay 10',
+                'lat': 43.24,
+                'lng': 76.95,
+              },
+              {
+                'name': 'Work',
+                'address': 'Dostyk 5',
+                'lat': 43.23,
+                'lng': 76.96,
+              },
+            ],
       'GET /customers/me/recent-destinations': <dynamic>[],
       'GET /notifications': <dynamic>[],
     });
@@ -92,21 +109,55 @@ void main() {
   }
 
   testWidgets(
-    'home: the sheet handle collapses and expands the shortcuts area',
+    'home: the sheet handle collapses and expands services and shortcuts',
     (t) async {
       await pumpHome(t, const Locale('en'));
       final handle = find.bySemanticsLabel('Hide list');
       expect(handle, findsOneWidget);
       expect(find.text('Home'), findsOneWidget);
       final before = t.getSize(find.byType(MapPanel)).height;
+
       await t.tap(handle);
+      await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect(find.bySemanticsLabel('Show list'), findsOneWidget);
-      // Collapsing never makes the panel taller; the three services stay reachable.
-      expect(
-        t.getSize(find.byType(MapPanel)).height,
-        lessThanOrEqualTo(before),
+      // Collapsed: only the search field stays, the map gets the space back.
+      expect(find.byKey(const Key('where-to')), findsOneWidget);
+      expect(find.byKey(const Key('tile-ride')), findsNothing);
+      expect(find.text('Home'), findsNothing);
+      expect(t.getSize(find.byType(MapPanel)).height, lessThan(before - 80));
+
+      await t.tap(find.bySemanticsLabel('Show list'));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const Key('tile-ride')), findsOneWidget);
+      expect(find.text('Home'), findsOneWidget);
+      expect(t.getSize(find.byType(MapPanel)).height, closeTo(before, 1));
+    },
+  );
+
+  testWidgets(
+    'home: a new passenger with no saved places can still collapse the sheet, by tap and by fling',
+    (t) async {
+      await pumpHome(t, const Locale('en'), withPlaces: false);
+      final before = t.getSize(find.byType(MapPanel)).height;
+      await t.fling(
+        find.bySemanticsLabel('Hide list'),
+        const Offset(0, 120),
+        800,
       );
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const Key('tile-ride')), findsNothing);
+      expect(t.getSize(find.byType(MapPanel)).height, lessThan(before - 80));
+
+      await t.fling(
+        find.bySemanticsLabel('Show list'),
+        const Offset(0, -120),
+        800,
+      );
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 400));
       expect(find.byKey(const Key('tile-ride')), findsOneWidget);
     },
   );
