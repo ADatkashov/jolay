@@ -11,43 +11,58 @@ class CountdownRing extends StatelessWidget {
   final double size;
   const CountdownRing({super.key, required this.left, this.size = 56});
   @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: false,
-    label: '$left',
-    child: ExcludeSemantics(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              width: size,
-              height: size,
-              child: CircularProgressIndicator(
-                value: (left / offerSeconds).clamp(0, 1).toDouble(),
-                strokeWidth: 5,
-                color: left <= 5 ? JolayPalette.dark.error : AppColors.yellow,
-                backgroundColor: const Color(0xFF3A3A38),
-                strokeCap: StrokeCap.round,
+  Widget build(BuildContext context) {
+    double frac(int v) => (v / offerSeconds).clamp(0, 1).toDouble();
+    return Semantics(
+      liveRegion: false,
+      label: '$left',
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: size,
+                height: size,
+                // The server ticks once a second; the ring glides linearly to the next second's value so it drains
+                // continuously. Reduced motion: it simply steps.
+                child: TweenAnimationBuilder<double>(
+                  key: context.reduceMotion ? null : ValueKey(left),
+                  tween: Tween(begin: frac(left), end: frac(left - 1)),
+                  duration: context.reduceMotion
+                      ? Duration.zero
+                      : const Duration(seconds: 1),
+                  curve: Curves.linear,
+                  builder: (_, v, _) => CircularProgressIndicator(
+                    value: context.reduceMotion ? frac(left) : v,
+                    strokeWidth: 5,
+                    color: left <= 5
+                        ? JolayPalette.dark.error
+                        : AppColors.yellow,
+                    backgroundColor: const Color(0xFF3A3A3A),
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
               ),
-            ),
-            Text(
-              '$left',
-              style: TextStyle(
-                fontFamily: AppTypography.family,
-                package: AppTypography.package,
-                fontSize: size * .36,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                fontFeatures: const [FontFeature.tabularFigures()],
+              Text(
+                '$left',
+                style: TextStyle(
+                  fontFamily: AppTypography.family,
+                  package: AppTypography.package,
+                  fontSize: size * .36,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Stat extends StatelessWidget {
@@ -60,7 +75,7 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       margin: const EdgeInsets.symmetric(horizontal: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A28),
+        color: const Color(0xFF2B2B2B),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -145,8 +160,9 @@ class OfferShell extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
         decoration: BoxDecoration(
-          color: AppColors.midnight,
+          color: dark.surface,
           borderRadius: BorderRadius.circular(AppRadius.sheet - 4),
+          border: Border.all(color: dark.border),
           boxShadow: AppElevation.sheet,
         ),
         child: SafeArea(
@@ -286,6 +302,7 @@ class OfferShell extends ConsumerWidget {
                     child: AppButton(
                       key: declineKey,
                       label: ref.t('driver.decline'),
+                      size: AppButtonSize.xl,
                       variant: AppButtonVariant.outlined,
                       onPressed: busy ? null : onDecline,
                     ),
@@ -296,6 +313,7 @@ class OfferShell extends ConsumerWidget {
                     child: AppButton(
                       key: acceptKey,
                       label: ref.t('driver.accept'),
+                      size: AppButtonSize.xl,
                       loading: busy,
                       onPressed: busy ? null : onAccept,
                     ),
@@ -384,7 +402,7 @@ class _PayChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: const Color(0xFF2A2A28),
+      color: const Color(0xFF2B2B2B),
       borderRadius: BorderRadius.circular(AppRadius.pill),
     ),
     child: Row(

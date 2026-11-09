@@ -25,15 +25,15 @@ abstract final class AppColors {
   static const info = Color(0xFF2878D0);
 
   // Dark-theme semantics (not an inversion: warmer neutrals, lifted status colours)
-  static const darkBackground = Color(0xFF0E0E0E);
-  static const darkSurface = Color(0xFF1A1A19);
-  static const darkElevated = Color(0xFF252524);
-  static const darkTextPrimary = Color(0xFFF4F4F0);
-  static const darkTextSecondary = Color(0xFFA6A6A1);
-  static const darkBorder = Color(0xFF34342F);
-  static const darkSuccess = Color(0xFF3DBB7E);
+  static const darkBackground = Color(0xFF171717);
+  static const darkSurface = Color(0xFF1F1F1F);
+  static const darkElevated = Color(0xFF242424);
+  static const darkTextPrimary = Color(0xFFF7F7F4);
+  static const darkTextSecondary = Color(0xFFA6A6A6);
+  static const darkBorder = Color(0xFF333333);
+  static const darkSuccess = Color(0xFF36C995);
   static const darkWarning = Color(0xFFF0B45A);
-  static const darkError = Color(0xFFF2707A);
+  static const darkError = Color(0xFFF16D7D);
   static const darkInfo = Color(0xFF6AAEF0);
 }
 
@@ -113,18 +113,18 @@ class JolayPalette extends ThemeExtension<JolayPalette> {
     textPrimary: AppColors.darkTextPrimary,
     textSecondary: AppColors.darkTextSecondary,
     border: AppColors.darkBorder,
-    divider: Color(0xFF2A2A27),
+    divider: Color(0xFF2B2B2B),
     accent: AppColors.yellow,
     onAccent: AppColors.midnight,
-    selected: Color(0xFF3A3120),
+    selected: Color(0xFF33291A),
     selectedBorder: AppColors.yellow,
     success: AppColors.darkSuccess,
     warning: AppColors.darkWarning,
     error: AppColors.darkError,
     info: AppColors.darkInfo,
-    successSoft: Color(0xFF16301F),
+    successSoft: Color(0xFF14302A),
     warningSoft: Color(0xFF3A2D12),
-    errorSoft: Color(0xFF3B1A1E),
+    errorSoft: Color(0xFF3A1C22),
     infoSoft: Color(0xFF14283D),
     scrim: Color(0x99000000),
     inverse: AppColors.darkTextPrimary,
@@ -227,6 +227,14 @@ abstract final class AppSizes {
       minTap = 48,
       navBar = 68,
       grabber = 4;
+}
+
+/// Minimum comfortable touch target and layout constants shared by both apps.
+abstract final class AppLayout {
+  /// Android/Material minimum; driver-facing primary actions use [driverAction].
+  static const double minTouch = 48;
+  static const double driverAction = 60;
+  static const double mapControl = 48;
 }
 
 abstract final class AppDurations {

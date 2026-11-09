@@ -19,6 +19,7 @@ export 'src/design/surfaces.dart';
 export 'src/design/display.dart';
 export 'src/design/states.dart';
 export 'src/design/nav.dart';
+export 'src/design/status.dart';
 export 'src/design/brand.dart' show JolayMark, JolayScene, JolayIllustration;
 export 'src/design/map_ui.dart';
 export 'src/design/language.dart';

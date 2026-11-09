@@ -25,6 +25,10 @@ const tileUrl = String.fromEnvironment(
   defaultValue: '${ApiConfig.baseUrl}/api/v1/geo/tiles/{z}/{x}/{y}.png',
 );
 
+/// Dark-mode tile wrapper shared with the customer app's look (see [JolayMapStyle.darkTiles]).
+Widget _darkTiles(BuildContext context, Widget tile, TileImage image) =>
+    ColorFiltered(colorFilter: JolayMapStyle.darkTiles, child: tile);
+
 /// Decides what the driver sees based on server-side state: no profile -> vehicle registration,
 /// PENDING/REJECTED/SUSPENDED -> status screen, APPROVED -> working app.
 class DriverGate extends ConsumerWidget {
@@ -238,7 +242,23 @@ class _HomeState extends ConsumerState<DriverHome> {
     await pub.start();
   }
 
+  /// Going online is one tap; going offline asks first so a bump in a moving car cannot drop the driver off the line.
+  Future<void> _requestToggle(bool on) async {
+    if (!on && _online) {
+      final ok = await showConfirmationDialog(
+        context,
+        title: ref.t('driver.offlineConfirmTitle'),
+        message: ref.t('driver.offlineConfirmBody'),
+        confirmLabel: ref.t('driver.goOffline'),
+        cancelLabel: ref.t('driver.stayOnline'),
+      );
+      if (!ok || !mounted) return;
+    }
+    await _toggle(on);
+  }
+
   Future<void> _toggle(bool on) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       if (on && !await ref.read(locationPublisherProvider).ensurePermission()) {
@@ -336,7 +356,7 @@ class _HomeState extends ConsumerState<DriverHome> {
               TileLayer(
                 urlTemplate: tileUrl,
                 userAgentPackageName: 'kz.jolay.driver',
-                tileBuilder: p.isDark ? darkModeTileBuilder : null,
+                tileBuilder: p.isDark ? _darkTiles : null,
               ),
               if (_ride != null && _nav != null && _nav!.points.length > 1)
                 PolylineLayer(
@@ -345,17 +365,15 @@ class _HomeState extends ConsumerState<DriverHome> {
                       points: [
                         for (final (lat, lng) in _nav!.points) LatLng(lat, lng),
                       ],
-                      strokeWidth: 8,
-                      color: AppColors.midnight,
-                      borderStrokeWidth: 2,
-                      borderColor: Colors.white,
+                      strokeWidth: JolayMapStyle.routeCasingWidth,
+                      color: JolayMapStyle.routeCasing(p.isDark),
                     ),
                     Polyline(
                       points: [
                         for (final (lat, lng) in _nav!.points) LatLng(lat, lng),
                       ],
-                      strokeWidth: 3.5,
-                      color: AppColors.yellow,
+                      strokeWidth: JolayMapStyle.routeCoreWidth,
+                      color: JolayMapStyle.routeCore,
                     ),
                   ],
                 ),
@@ -377,10 +395,15 @@ class _HomeState extends ConsumerState<DriverHome> {
                       height: 44,
                       child: Semantics(
                         label: ref.t('nav.clientHere'),
-                        child: const Icon(
+                        child: Icon(
                           Icons.person_pin_circle_rounded,
                           size: 44,
-                          color: AppColors.midnight,
+                          color: p.isDark
+                              ? AppColors.white
+                              : AppColors.midnight,
+                          shadows: const [
+                            Shadow(color: Colors.black54, blurRadius: 8),
+                          ],
                         ),
                       ),
                     ),
@@ -402,9 +425,7 @@ class _HomeState extends ConsumerState<DriverHome> {
               ),
               const RichAttributionWidget(
                 alignment: AttributionAlignment.bottomLeft,
-                attributions: [
-                  TextSourceAttribution('© 2GIS'),
-                ],
+                attributions: [TextSourceAttribution('© 2GIS')],
               ),
             ],
           ),
@@ -414,64 +435,45 @@ class _HomeState extends ConsumerState<DriverHome> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Column(
               children: [
-                // Status bar: the one control a driver needs at all times.
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                // Status bar: the one control a driver needs at all times. Big, unambiguous, and going offline is confirmed.
+                AnimatedContainer(
+                  duration: context.motion(AppDurations.base),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 6, 8),
                   decoration: BoxDecoration(
                     color: p.surface,
                     borderRadius: AppRadius.cardR,
+                    border: Border.all(
+                      color: _online
+                          ? p.success.withValues(alpha: .55)
+                          : p.border,
+                    ),
                     boxShadow: AppElevation.floating,
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: _online ? p.success : p.textSecondary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: p.surface, width: 2),
-                          boxShadow: [
-                            if (_online)
-                              BoxShadow(
-                                color: p.success.withValues(alpha: .4),
-                                blurRadius: 6,
-                                spreadRadius: 2,
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _online
-                                  ? ref.t('driver.statusOnline')
-                                  : ref.t('driver.statusOffline'),
-                              style: t.titleSmall,
-                            ),
-                            Text(
-                              _online
-                                  ? ref.t('driver.onlineHint')
-                                  : ref.t('driver.offlineHint'),
-                              style: t.bodySmall,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                        child: Semantics(
+                          liveRegion: true,
+                          child: StatusIndicator(
+                            active: _online,
+                            label: _online
+                                ? ref.t('driver.statusOnline')
+                                : ref.t('driver.statusOffline'),
+                            caption: _online
+                                ? ref.t('driver.onlineHint')
+                                : ref.t('driver.offlineHint'),
+                          ),
                         ),
                       ),
-                      Semantics(
-                        label: _online
+                      JolayToggle(
+                        key: const Key('online-switch'),
+                        value: _online,
+                        semanticLabel: _online
                             ? ref.t('driver.goOffline')
                             : ref.t('driver.goOnline'),
-                        child: Switch(
-                          key: const Key('online-switch'),
-                          value: _online,
-                          onChanged: (_busy || busyWithJob) ? null : _toggle,
-                        ),
+                        onChanged: (_busy || busyWithJob)
+                            ? null
+                            : _requestToggle,
                       ),
                     ],
                   ),
@@ -727,8 +729,9 @@ class _SearchingPillState extends State<_SearchingPill>
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
     decoration: BoxDecoration(
-      color: AppColors.midnight,
+      color: context.palette.elevated,
       borderRadius: BorderRadius.circular(AppRadius.pill),
+      border: Border.all(color: context.palette.border),
       boxShadow: AppElevation.floating,
     ),
     child: Row(
@@ -770,8 +773,8 @@ class _SearchingPillState extends State<_SearchingPill>
             widget.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.palette.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),

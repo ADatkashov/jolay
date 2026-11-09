@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Light / dark / follow-system, persisted. Default: follow the system setting.
+/// Light / dark / follow-system, persisted. Default: dark (the JOLAY brand look); the user can switch in Settings.
 class ThemeModeController extends Notifier<ThemeMode> {
   static const _k = 'jolay.themeMode';
   @override
   ThemeMode build() {
     _load();
-    return ThemeMode.system;
+    return ThemeMode.dark;
   }
 
   Future<void> _load() async {

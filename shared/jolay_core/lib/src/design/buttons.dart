@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'tokens.dart';
 
 enum AppButtonVariant { primary, secondary, outlined, ghost, danger }
 
-enum AppButtonSize { large, medium, small }
+/// [xl] is the 60 dp action for work-in-motion screens (driver accept / start / finish).
+enum AppButtonSize { xl, large, medium, small }
 
 /// The one JOLAY button. [PrimaryButton], [SecondaryButton] and [AppOutlinedButton] are presets of it.
 ///
@@ -36,6 +38,15 @@ class AppButton extends StatefulWidget {
 
 class _AppButtonState extends State<AppButton> {
   bool _down = false, _focused = false;
+
+  void _press() {
+    // Primary and destructive actions get a light haptic tick; secondary ones stay silent.
+    if (widget.variant == AppButtonVariant.primary ||
+        widget.variant == AppButtonVariant.danger) {
+      HapticFeedback.lightImpact();
+    }
+    widget.onPressed?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,13 +81,16 @@ class _AppButtonState extends State<AppButton> {
         ? Colors.transparent
         : p.divider;
     final height = switch (widget.size) {
+      AppButtonSize.xl => AppLayout.driverAction,
       AppButtonSize.large => AppSizes.buttonL,
       AppButtonSize.medium => AppSizes.buttonM,
       AppButtonSize.small => AppSizes.buttonS,
     };
-    final textStyle = (widget.size == AppButtonSize.small
-        ? Theme.of(context).textTheme.labelMedium
-        : Theme.of(context).textTheme.labelLarge)!;
+    final textStyle = (switch (widget.size) {
+      AppButtonSize.small => Theme.of(context).textTheme.labelMedium,
+      AppButtonSize.xl => Theme.of(context).textTheme.titleMedium,
+      _ => Theme.of(context).textTheme.labelLarge,
+    })!;
     final color = enabled || widget.loading ? fg : p.textSecondary;
     final label = Row(
       mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
@@ -96,7 +110,8 @@ class _AppButtonState extends State<AppButton> {
           Flexible(
             child: Text(
               widget.label,
-              maxLines: 1,
+              // Long Kazakh / Russian labels wrap to a second line instead of being cut off.
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: textStyle.copyWith(color: color),
@@ -111,7 +126,7 @@ class _AppButtonState extends State<AppButton> {
       enabled: enabled,
       label: widget.label,
       excludeSemantics: true,
-      onTap: enabled ? widget.onPressed : null,
+      onTap: enabled ? _press : null,
       value: widget.loading ? '…' : null,
       child: AnimatedScale(
         scale: scale,
@@ -140,7 +155,7 @@ class _AppButtonState extends State<AppButton> {
             borderRadius: AppRadius.buttonR,
             child: InkWell(
               borderRadius: AppRadius.buttonR,
-              onTap: enabled ? widget.onPressed : null,
+              onTap: enabled ? _press : null,
               onHighlightChanged: (v) => setState(() => _down = v),
               onFocusChange: (v) => setState(() => _focused = v),
               child: Padding(

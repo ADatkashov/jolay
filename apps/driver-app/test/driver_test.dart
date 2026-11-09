@@ -61,6 +61,7 @@ Widget app(Widget child, FakeApi api, [List<Override> extra = const []]) =>
     );
 
 void main() {
+  redesignTests();
   testWidgets('a driver without a profile is sent to vehicle registration', (
     t,
   ) async {
@@ -316,4 +317,96 @@ void main() {
       expect(find.byKey(const Key('promo-cash')), findsNothing);
     },
   );
+}
+
+class _FakePublisher extends LocationPublisher {
+  _FakePublisher(super.api);
+  @override
+  Future<bool> ensurePermission() async => true;
+  @override
+  Future<void> start() async {}
+  @override
+  Future<void> stop() async {}
+}
+
+void redesignTests() {
+  testWidgets('countdown ring shows the seconds left and drains smoothly', (
+    t,
+  ) async {
+    await t.pumpWidget(
+      MaterialApp(
+        theme: jolayDarkTheme(),
+        home: const Scaffold(body: Center(child: CountdownRing(left: 12))),
+      ),
+    );
+    expect(find.text('12'), findsOneWidget);
+    double v() => t
+        .widget<CircularProgressIndicator>(
+          find.byType(CircularProgressIndicator),
+        )
+        .value!;
+    final start = v();
+    await t.pump(const Duration(milliseconds: 500));
+    final mid = v();
+    await t.pump(const Duration(milliseconds: 500));
+    final end = v();
+    expect(start, closeTo(12 / offerSeconds, .001));
+    expect(mid, lessThan(start));
+    expect(mid, greaterThan(end));
+    expect(end, closeTo(11 / offerSeconds, .01));
+  });
+
+  testWidgets('going offline asks first; staying online sends nothing', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(800, 1800);
+    t.view.devicePixelRatio = 1.0;
+    addTearDown(t.view.reset);
+    final api = FakeApi({
+      'GET /drivers/me': {
+        'verification': 'APPROVED',
+        'availability': 'ONLINE',
+        'rating_avg': 4.9,
+      },
+      'PUT /drivers/availability': <String, dynamic>{},
+    });
+    await t.pumpWidget(
+      app(
+        // The real app builds DriverHome only after the profile has loaded (DriverGate); do the same here.
+        Consumer(
+          builder: (c, ref, _) => ref
+              .watch(driverMeProvider)
+              .when(
+                data: (_) => const DriverHome(),
+                loading: () => const SizedBox(),
+                error: (_, _) => const SizedBox(),
+              ),
+        ),
+        api,
+        [
+          locationPublisherProvider.overrideWith(
+            (ref) => _FakePublisher(ref.read(apiProvider)),
+          ),
+        ],
+      ),
+    );
+    await t.pump();
+    await t.pump();
+    expect(find.text("You're online"), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('online-switch')));
+    await t.pump(const Duration(milliseconds: 400));
+    expect(find.text('Go offline?'), findsOneWidget);
+    await t.tap(find.text('Stay online'));
+    await t.pump(const Duration(milliseconds: 400));
+    expect(api.calls.where((c) => c == 'PUT /drivers/availability'), isEmpty);
+    expect(find.text("You're online"), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('online-switch')));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tap(find.widgetWithText(AppButton, 'Go offline'));
+    await t.pump(const Duration(milliseconds: 400));
+    expect(api.calls, contains('PUT /drivers/availability'));
+    expect(find.text("You're offline"), findsOneWidget);
+  });
 }

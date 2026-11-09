@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jolay_core/jolay_core.dart';
@@ -12,6 +13,69 @@ const tileUrl = String.fromEnvironment(
   'TILE_URL',
   defaultValue: '${ApiConfig.baseUrl}/api/v1/geo/tiles/{z}/{x}/{y}.png',
 );
+
+/// Dark-mode tile wrapper: [JolayMapStyle.darkTiles] keeps roads and labels readable (see its doc).
+Widget jolayDarkTileBuilder(
+  BuildContext context,
+  Widget tile,
+  TileImage image,
+) => ColorFiltered(colorFilter: JolayMapStyle.darkTiles, child: tile);
+
+/// Smoothly moves the camera (ease-out) instead of jumping. Falls back to an instant move under reduced motion.
+class MapCameraAnimator {
+  final MapController controller;
+  final TickerProvider vsync;
+  AnimationController? _anim;
+  MapCameraAnimator(this.controller, this.vsync);
+
+  void moveTo(
+    LatLng target,
+    double zoom, {
+    bool reduceMotion = false,
+    Duration duration = const Duration(milliseconds: 450),
+  }) {
+    _anim?.dispose();
+    _anim = null;
+    final MapCamera cam;
+    try {
+      cam = controller.camera;
+    } catch (_) {
+      return; // the map is not attached yet
+    }
+    if (reduceMotion) {
+      controller.move(target, zoom);
+      return;
+    }
+    final c = AnimationController(vsync: vsync, duration: duration);
+    _anim = c;
+    final curve = CurvedAnimation(parent: c, curve: Curves.easeOutCubic);
+    final from = cam.center;
+    final z0 = cam.zoom;
+    curve.addListener(() {
+      final t = curve.value;
+      try {
+        controller.move(
+          LatLng(
+            from.latitude + (target.latitude - from.latitude) * t,
+            from.longitude + (target.longitude - from.longitude) * t,
+          ),
+          z0 + (zoom - z0) * t,
+        );
+      } catch (_) {}
+    });
+    c.forward().whenComplete(() {
+      if (_anim == c) {
+        c.dispose();
+        _anim = null;
+      }
+    });
+  }
+
+  void dispose() {
+    _anim?.dispose();
+    _anim = null;
+  }
+}
 
 Marker pin(LatLng p, Widget child, {double size = 44}) =>
     Marker(point: p, width: size, height: size, child: child);
@@ -73,31 +137,31 @@ class JolayMap extends StatelessWidget {
         TileLayer(
           urlTemplate: tileUrl,
           userAgentPackageName: 'kz.jolay.customer',
-          tileBuilder: dark ? darkModeTileBuilder : null,
+          tileBuilder: dark ? jolayDarkTileBuilder : null,
         ),
         if (route.length > 1)
           PolylineLayer(
             polylines: [
               Polyline(
                 points: route,
-                strokeWidth: 8,
-                color: AppColors.midnight,
-                borderStrokeWidth: 2,
-                borderColor: Colors.white,
+                strokeWidth: JolayMapStyle.routeCasingWidth,
+                color: JolayMapStyle.routeCasing(dark),
+                strokeCap: StrokeCap.round,
+                strokeJoin: StrokeJoin.round,
               ),
               Polyline(
                 points: route,
-                strokeWidth: 3.5,
-                color: AppColors.yellow,
+                strokeWidth: JolayMapStyle.routeCoreWidth,
+                color: JolayMapStyle.routeCore,
+                strokeCap: StrokeCap.round,
+                strokeJoin: StrokeJoin.round,
               ),
             ],
           ),
         MarkerLayer(markers: markers),
         const RichAttributionWidget(
           alignment: AttributionAlignment.bottomLeft,
-          attributions: [
-            TextSourceAttribution('© 2GIS'),
-          ],
+          attributions: [TextSourceAttribution('© 2GIS')],
         ),
       ],
     );
@@ -120,6 +184,8 @@ class _MapPickerState extends ConsumerState<MapPickerScreen> {
   bool _moving = false;
 
   Future<void> _confirm() async {
+    if (_busy) return;
+    HapticFeedback.selectionClick();
     final c = _center ?? widget.start;
     setState(() => _busy = true);
     try {
@@ -174,7 +240,7 @@ class _MapPickerState extends ConsumerState<MapPickerScreen> {
                 TileLayer(
                   urlTemplate: tileUrl,
                   userAgentPackageName: 'kz.jolay.customer',
-                  tileBuilder: dark ? darkModeTileBuilder : null,
+                  tileBuilder: dark ? jolayDarkTileBuilder : null,
                 ),
               ],
             ),
@@ -187,11 +253,13 @@ class _MapPickerState extends ConsumerState<MapPickerScreen> {
                 child: AnimatedSlide(
                   duration: context.motion(AppDurations.fast),
                   offset: Offset(0, _moving ? -.18 : 0),
-                  child: const Icon(
+                  child: Icon(
                     AppIcons.pin,
                     size: 52,
-                    color: AppColors.midnight,
-                    shadows: [Shadow(color: Colors.black38, blurRadius: 8)],
+                    color: dark ? AppColors.yellow : AppColors.midnight,
+                    shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 8),
+                    ],
                   ),
                 ),
               ),
