@@ -1,6 +1,7 @@
 package kz.jolay.payments;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
@@ -17,6 +18,7 @@ import java.util.UUID;
  * see docs/PAYMENT_INTEGRATION.md for what is still required (merchant credentials, signature scheme, URLs).
  */
 @Component
+@ConditionalOnProperty(name = "jolay.payments.provider", havingValue = "sandbox")   // not even a bean (webhook, checkout) under any other provider
 public class SandboxPaymentProvider implements PaymentProvider {
     private final String secret;
     private final String baseUrl;

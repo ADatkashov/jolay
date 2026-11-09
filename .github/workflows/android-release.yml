@@ -137,6 +137,21 @@ jobs:
             exit 1
           fi
 
+      - name: Verify the AAB is signed with the release key
+        run: |
+          aab="apps/${{ matrix.app }}/build/app/outputs/bundle/release/app-release.aab"
+          rc=0
+          out=$(jarsigner -verify -certs "$aab" 2>&1) || rc=$?
+          echo "$out"
+          if [ "$rc" -ne 0 ] || ! echo "$out" | grep -q "jar verified"; then
+            echo "::error::jarsigner could not verify the AAB signature"
+            exit 1
+          fi
+          if echo "$out" | grep -q "CN=Android Debug"; then
+            echo "::error::AAB is signed with the debug key, not the release key"
+            exit 1
+          fi
+
       - name: Name the outputs
         run: |
           mkdir -p release-out

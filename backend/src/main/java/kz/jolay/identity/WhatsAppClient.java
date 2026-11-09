@@ -25,28 +25,42 @@ import java.util.Map;
 public class WhatsAppClient {
     private static final Logger log = LoggerFactory.getLogger(WhatsAppClient.class);
 
-    private final String baseUrl, phoneNumberId, token, template, language;
+    private final String baseUrl, phoneNumberId, token, template, otpTemplate, language;
     private final Duration timeout;
     private final HttpClient http;
     private final ObjectMapper mapper;
 
-    public WhatsAppClient(String baseUrl, String phoneNumberId, String token, String template, String language, Duration timeout, ObjectMapper mapper) {
+    public WhatsAppClient(String baseUrl, String phoneNumberId, String token, String template, String otpTemplate, String language, Duration timeout, ObjectMapper mapper) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        this.phoneNumberId = phoneNumberId; this.token = token; this.template = template; this.language = language;
+        this.phoneNumberId = phoneNumberId; this.token = token; this.template = template; this.otpTemplate = otpTemplate == null ? "" : otpTemplate; this.language = language;
         this.timeout = timeout; this.mapper = mapper;
         this.http = HttpClient.newBuilder().connectTimeout(timeout).build();
     }
 
-    /** @return true when WhatsApp accepted the message for this number. */
+    /** Free-text message (SOS alerts): the generic template whose body is {{1}}. @return true when WhatsApp accepted the message for this number. */
     public boolean send(String phone, String text) {
+        // Template variables may not contain newlines/tabs or runs of 4+ spaces.
+        String param = text.replaceAll("[\\r\\n\\t]+", " ").replaceAll(" {4,}", "   ");
+        return post(phone, template, List.of(Map.of("type", "body", "parameters", List.of(Map.of("type", "text", "text", param)))));
+    }
+
+    /**
+     * One-time code through an approved AUTHENTICATION template (fixed Meta text, the code is the only variable; also sent to the Copy code button).
+     * Without jolay.whatsapp.otp-template the code goes through the generic template instead.
+     */
+    public boolean sendOtp(String phone, String code) {
+        if (otpTemplate.isBlank()) return send(phone, "JOLAY: " + code + " - your verification code. Do not share it.");
+        return post(phone, otpTemplate, List.of(
+                Map.of("type", "body", "parameters", List.of(Map.of("type", "text", "text", code))),
+                Map.of("type", "button", "sub_type", "url", "index", "0", "parameters", List.of(Map.of("type", "text", "text", code)))));
+    }
+
+    private boolean post(String phone, String templateName, List<Map<String, Object>> components) {
         String to = phone.replace("+", "");
         try {
-            // Template variables may not contain newlines/tabs or runs of 4+ spaces.
-            String param = text.replaceAll("[\\r\\n\\t]+", " ").replaceAll(" {4,}", "   ");
             Map<String, Object> body = Map.of(
                     "messaging_product", "whatsapp", "to", to, "type", "template",
-                    "template", Map.of("name", template, "language", Map.of("code", language),
-                            "components", List.of(Map.of("type", "body", "parameters", List.of(Map.of("type", "text", "text", param))))));
+                    "template", Map.of("name", templateName, "language", Map.of("code", language), "components", components));
             HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/" + phoneNumberId + "/messages")).timeout(timeout)
                     .header("Authorization", "Bearer " + token).header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build();

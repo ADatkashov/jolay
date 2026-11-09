@@ -11,6 +11,16 @@ public class WhatsAppFirstSender implements SmsSender {
 
     public WhatsAppFirstSender(WhatsAppClient whatsApp, SmsSender smsFallback) { this.whatsApp = whatsApp; this.smsFallback = smsFallback; }
 
+    @Override public boolean deliversMessages() { return true; }
+
+    /** Whether people without WhatsApp can still get a text (false while only the development log sender backs the fallback). */
+    public boolean fallbackDelivers() { return smsFallback.deliversMessages(); }
+
+    @Override public void sendOtp(String phone, String code) {
+        if (whatsApp.sendOtp(phone, code)) return;
+        smsFallback.sendOtp(phone, code);
+    }
+
     @Override public void send(String phone, String text) {
         if (whatsApp.send(phone, text)) return;
         log.debug("Sending via SMS fallback");

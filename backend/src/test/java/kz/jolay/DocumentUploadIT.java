@@ -56,4 +56,27 @@ class DocumentUploadIT extends IntegrationTestBase {
         // stored under a server-generated name, never the client's
         assertFalse(jdbc.sql("SELECT storage_key FROM driver_documents").query(String.class).single().contains("id.png"));
     }
+
+    @Test
+    void aTamperedStorageKeyCannotLeaveTheDocumentDirectory() throws Exception {
+        Session d = register("DRIVER");
+        post("/api/v1/drivers/register", d.token(), Map.of("vehicle", Map.of("brand", "Kia", "model", "Rio", "year", 2019, "color", "Black", "plate", "777ABC02", "category", "ECONOMY")));
+        assertEquals(201, upload(d, "ID_CARD", "id.png", PNG).getStatusCode().value());
+        String docId = get("/api/v1/drivers/documents", d.token()).body().get(0).path("id").asText();
+        java.nio.file.Path outside = java.nio.file.Files.createTempFile("outside", ".png");
+        java.nio.file.Files.write(outside, PNG);
+        jdbc.sql("UPDATE driver_documents SET storage_key=:k WHERE id=:i::uuid").param("k", "../../../../../../.." + outside.toAbsolutePath()).param("i", docId).update();
+        assertEquals(404, get("/api/v1/admin/drivers/documents/" + docId + "/file", admin("OPERATIONS_ADMIN").token()).status());
+        jdbc.sql("UPDATE driver_documents SET storage_key='..' WHERE id=:i::uuid").param("i", docId).update();
+        assertEquals(404, get("/api/v1/admin/drivers/documents/" + docId + "/file", admin("OPERATIONS_ADMIN").token()).status());
+        java.nio.file.Files.deleteIfExists(outside);
+    }
+
+    @Test
+    void aDriverCannotFillTheDiskWithUploads() {
+        Session d = register("DRIVER");
+        post("/api/v1/drivers/register", d.token(), Map.of("vehicle", Map.of("brand", "Kia", "model", "Rio", "year", 2019, "color", "Black", "plate", "777ABC02", "category", "ECONOMY")));
+        for (int i = 0; i < 30; i++) assertEquals(201, upload(d, "PHOTO", "p" + i + ".png", PNG).getStatusCode().value());
+        assertEquals(409, upload(d, "PHOTO", "one-too-many.png", PNG).getStatusCode().value());
+    }
 }

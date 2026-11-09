@@ -5,12 +5,14 @@
 |---|---|
 | Cash rides (commission debited from driver wallet) | implemented, tested |
 | Wallet rides (ledger) | implemented, tested |
-| Card / wallet top-up through `PaymentProvider` | implemented against **`SandboxPaymentProvider`** (HMAC-signed callbacks; no money moves) |
+| Card / wallet top-up through `PaymentProvider` | implemented against **`SandboxPaymentProvider`** (HMAC-signed callbacks; no money moves). The sandbox bean and its `/payments/{id}/sandbox-checkout` helper exist **only** when `JOLAY_PAYMENT_PROVIDER=sandbox` |
+| Public/production deployments | `JOLAY_PAYMENT_PROVIDER=none`: card rides and card top-ups answer `503 card_payments_unavailable`; cash and wallet rides work. The `prod` profile refuses `sandbox` unless `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` (closed internal demo only, with a strong `JOLAY_SANDBOX_WEBHOOK_SECRET`) |
 | Kaspi, FreedomPay or any bank gateway | **not integrated** — requires a merchant agreement, API documentation and credentials |
-| Tokenised saved cards, 3-DS redirect handling, reconciliation job, driver payouts | not built |
+| Hourly reconciliation job, driver and partner payouts (manual bank transfer) | built (see STATUS.md) |
+| Tokenised saved cards, 3-DS redirect handling, gateway-report reconciliation | not built |
 
 Never claim a payment is complete from the client. Flow: client calls `POST /payments/initialize` → backend creates `payment_transactions(PENDING)` and returns the provider checkout URL →
-the gateway calls `POST /payments/webhooks/{provider}` → signature verified → amount checked → ledger posted → ride `PAID` → `PAYMENT_STATUS_UPDATED` event.
+the gateway calls `POST /payments/webhooks/{provider}` → signature verified (HMAC-SHA256 over the raw body, constant-time compare) → event id de-duplicated → amount checked exactly (a missing, malformed or different amount fails the payment) → ledger posted → ride `PAID` → `PAYMENT_STATUS_UPDATED` event.
 
 ## Writing a real adapter
 Implement `kz.jolay.payments.PaymentProvider` (`name`, `initiate`, `verifySignature`, `refund`) as a Spring `@Component`, set `JOLAY_PAYMENT_PROVIDER=<name>`.

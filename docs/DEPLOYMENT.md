@@ -6,22 +6,43 @@ cp .env.example .env && $EDITOR .env          # set strong values
 docker compose up -d --build
 docker compose ps && curl -s localhost:8080/actuator/health/readiness
 ```
-Compose is a **development** stack (dev OTP logging, default ports). For production:
-* run the backend with `SPRING_PROFILES_ACTIVE=prod` (JSON/ECS logs, OTP logging impossible), `JOLAY_SMS_LOG_CODE=false`, a real `SmsSender` (the fallback channel) and WhatsApp as the primary channel (`JOLAY_WHATSAPP_ENABLED=true`, `JOLAY_WHATSAPP_PHONE_NUMBER_ID`, `JOLAY_WHATSAPP_TOKEN`, `JOLAY_WHATSAPP_TEMPLATE` — an approved Meta template whose body is `{{1}}`; OTP and SOS texts go to WhatsApp first and to SMS only if WhatsApp cannot deliver; asynchronous "undeliverable" status webhooks are not handled yet), and a non-sandbox payment provider;
+Compose is a **development** stack (dev OTP logging, sandbox payments, default ports and a published admin password). Do not expose it to other people. For anything reachable by others:
+* run the backend with `SPRING_PROFILES_ACTIVE=prod` (the Docker image's default; JSON/ECS logs, OTP logging impossible). The prod profile **refuses to start** unless: the JWT secret is real (≥ 32 bytes), `JOLAY_CORS_ORIGINS` lists only `https://` origins, `JOLAY_PUBLIC_URL` is the public `https://` address, `JOLAY_ADMIN_PASSWORD` (if set) is ≥ 12 characters and not a default, payments are not the sandbox, and **one-time codes have a channel that delivers** (below);
+* **OTP channel (required).** WhatsApp is the primary channel: `JOLAY_WHATSAPP_ENABLED=true`, `JOLAY_WHATSAPP_PHONE_NUMBER_ID`, `JOLAY_WHATSAPP_TOKEN`, `JOLAY_WHATSAPP_TEMPLATE` (approved utility template whose body is `{{1}}`, used for SOS alerts) and `JOLAY_WHATSAPP_OTP_TEMPLATE` (approved authentication template with a Copy code button, created through the `upsert_message_templates` API with `otp_type: COPY_CODE`). The SMS sender is the fallback for people without WhatsApp: provide a real `SmsSender` bean named `productionSmsSender`. Without one, only WhatsApp delivers codes (the backend logs a warning at start) and people without WhatsApp cannot sign up. If neither is configured the backend does not start. Undeliverable status webhooks from Meta are not handled yet: fallback happens only when Meta rejects the request synchronously;
+* **Payments:** `JOLAY_PAYMENT_PROVIDER=none` (cash and wallet rides; card rides and card top-ups answer 503) or a real adapter. `sandbox` is refused in `prod` unless `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` is set explicitly **and** `JOLAY_SANDBOX_WEBHOOK_SECRET` is a strong secret — that is a closed internal demo mode where any customer can mark their own card payments as paid; never use it on a deployment other people can reach, and never put the flag in a shared blueprint;
 * put TLS termination + rate limiting in front (nginx/ingress), terminate `wss` at the same host;
+* run **one backend instance** (see Scaling below);
 * use a managed PostgreSQL with PostGIS, daily backups (`scripts/backup-db.sh`), point-in-time recovery, and test restores.
 
 ## Management port (prod)
 In the `prod` profile Actuator (`/actuator/health/*`, `/actuator/prometheus`) is served on `JOLAY_MGMT_PORT` (default **8081**) and is not reachable on 8080. Do not expose 8081 through the ingress; probes and Prometheus use it. Dev/compose runs without the profile (health on 8080, metrics need a SUPER_ADMIN token).
-Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, `JOLAY_PUBLIC_URL` (public https:// address of the API; startup is refused otherwise), DB credentials, `JOLAY_CORS_ORIGINS`, a real payment provider (or `JOLAY_ALLOW_SANDBOX_PAYMENTS=true` for an internal demo only).
+Environment variables that must be set for `prod`: `JOLAY_JWT_SECRET`, `JOLAY_PUBLIC_URL` (public https:// address of the API), DB credentials, `JOLAY_CORS_ORIGINS` (https origins), an OTP channel (WhatsApp variables above), `JOLAY_PAYMENT_PROVIDER` (`none` or a real provider) and, for the first start, `JOLAY_ADMIN_PHONE`/`JOLAY_ADMIN_PASSWORD`. Startup is refused otherwise.
 
 ## Kubernetes
 `infrastructure/kubernetes/backend.yaml` (Deployment, Service, probes, non-root, resource limits). Secrets are created with `kubectl create secret generic jolay-secrets ...` (see file header).
-Note: WebSocket events are in-process → keep `replicas: 1` for the realtime features until events are fanned out across replicas (see ARCHITECTURE.md), or use sticky sessions and accept missed events (clients re-sync via REST).
+The manifest pins `replicas: 1` on purpose: WebSocket events, rate limits and login lockout are per instance (see Scaling below). The manifest mounts no volume for driver documents (see Driver documents).
 Prometheus scrape config: `infrastructure/monitoring/prometheus.yml`; metrics at `/actuator/prometheus` (`jolay.*` counters + JVM/HTTP/Hikari).
 
 ## CI (GitHub Actions: `.github/workflows/ci.yml`)
-Backend tests against a PostGIS service container, admin build+tests, Flutter analyze+test for both apps, backend Docker build. First GitHub run: backend tests (PostGIS service), admin build/tests and the backend Docker build passed; the Flutter jobs failed on `flutter analyze` info-level findings, now fixed. See docs/CTO_FINAL_AUDIT.md.
+Backend tests against a PostGIS service container, admin and partner web build+tests, Flutter analyze+test for both apps, the live contract test, backend Docker build. Release signing is checked by the manual `Android Release` workflow (`.github/workflows/android-release.yml`): it fails without the four keystore secrets, refuses to publish an APK or AAB signed with the debug key, and the apps' Gradle build refuses release tasks without `android/key.properties`. Ordinary CI does not build release artifacts, so it cannot catch a debug-signed release by itself.
+
+## Scaling: one backend instance only
+Run exactly one backend replica. Rate limiting, login lockout, promo-guess limiting and WebSocket event fan-out live in the memory of the instance; with several replicas every limit is multiplied and realtime events are silently lost for users connected elsewhere. Horizontal scaling needs shared state first (counters in PostgreSQL/Redis, an event bus) — see docs/ARCHITECTURE.md#scaling-one-backend-instance-only. Add a global rate limit at the ingress regardless.
+
+## Driver documents
+Driver IDs and licences are written to `JOLAY_DOCS_DIR` (`/data/documents` in the image) on **local disk, unencrypted and unscanned**. A container without a mounted volume loses them on every restart or deploy (Render's free plan, and the provided Kubernetes manifest, have none). This repository has no encrypted or object storage and deliberately no home-made encryption. Before accepting real documents: mount a durable, encrypted volume at that path or move storage to an encrypted object store with signed URLs and malware scanning, add backups of it, and agree retention/erasure with counsel. The prod profile logs a warning about this at every start.
+
+## Production readiness
+The Render Blueprint (`render.yaml`) is a **public pilot/staging template, not a production sign-off**. Open blockers at the time of writing (details in docs/product/STATUS.md and docs/SECURITY.md):
+
+| Blocker | Why it matters |
+|---|---|
+| No durable, encrypted driver-document storage | personal data loss and exposure risk (above) |
+| No real payment adapter | public deployments are cash + wallet only |
+| OTP channels unverified against live Meta/SMS accounts; no SMS gateway adapter; Meta "undeliverable" webhooks not handled | people without WhatsApp may be unable to sign up |
+| Single instance, in-memory limits and realtime | no horizontal scaling, no high availability |
+| Release signing needs owner-provided keystore and store accounts; apps never run on a device | cannot publish |
+| Legal texts, personal-data compliance for Kazakhstan, independent penetration test | cannot launch publicly |
 
 ## Maps, address search and routing: 2GIS (single provider)
 Everything map-related uses **2GIS**; OpenStreetMap, Nominatim and OSRM are not used. Set one secret on the backend: **`JOLAY_2GIS_KEY`** (a key from the 2GIS Platform Manager with the Places/Suggest, Geocoder, Routing and Raster Tiles services enabled; the free demo key lasts one month and is limited to 1,000 requests per service, so production needs a purchased key). Optional: `JOLAY_2GIS_REGION_ID` if Suggest asks for a geographic restriction.

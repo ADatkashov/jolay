@@ -22,6 +22,7 @@ import java.util.UUID;
 public class DocumentService {
     private static final Set<String> TYPES = Set.of("ID_CARD", "DRIVER_LICENSE", "VEHICLE_REGISTRATION", "INSURANCE", "PHOTO");
     private static final long MAX = 5L * 1024 * 1024;
+    private static final int MAX_FILES_PER_DRIVER = 30;     // a driver cannot fill the disk with uploads
     private final JdbcClient jdbc;
     private final Path dir;
 
@@ -39,13 +40,15 @@ public class DocumentService {
         if (file.isEmpty() || file.getSize() > MAX) throw ApiException.badRequest("invalid_file", "File must be between 1 byte and 5 MB");
         if (jdbc.sql("SELECT count(*) FROM drivers WHERE user_id=:u").param("u", driverId).query(Integer.class).single() == 0)
             throw ApiException.notFound("driver_not_registered", "Driver profile not found");
+        if (jdbc.sql("SELECT count(*) FROM driver_documents WHERE driver_id=:d").param("d", driverId).query(Integer.class).single() >= MAX_FILES_PER_DRIVER)
+            throw ApiException.conflict("too_many_documents", "Document limit reached");
         try {
             byte[] bytes = file.getBytes();
             String ct = sniff(bytes);
             if (ct == null) throw ApiException.badRequest("invalid_file_type", "Only JPEG, PNG or PDF files are accepted");
             Files.createDirectories(dir);
             String key = UUID.randomUUID() + (ct.equals("application/pdf") ? ".pdf" : ct.equals("image/png") ? ".png" : ".jpg");
-            Files.write(dir.resolve(key), bytes);
+            Files.write(dir.resolve(key), bytes, java.nio.file.StandardOpenOption.CREATE_NEW);
             UUID id = jdbc.sql("INSERT INTO driver_documents(driver_id,doc_type,storage_key,content_type,size_bytes) VALUES (:d,:t,:k,:c,:s) RETURNING id")
                     .param("d", driverId).param("t", type).param("k", key).param("c", ct).param("s", bytes.length).query(UUID.class).single();
             return Map.of("id", id, "type", type, "status", "PENDING");
@@ -59,7 +62,10 @@ public class DocumentService {
     public Map<String, Object> adminFile(UUID docId) {
         var d = jdbc.sql("SELECT storage_key, content_type FROM driver_documents WHERE id=:id").param("id", docId).query().listOfRows().stream().findFirst()
                 .orElseThrow(() -> ApiException.notFound("document_not_found", "Document not found"));
-        try { return Map.of("bytes", Files.readAllBytes(dir.resolve((String) d.get("storage_key")).normalize()), "contentType", d.get("content_type")); }
+        // Defence in depth: the key is server-generated, but a tampered row must never lead outside the document directory.
+        Path file = dir.resolve((String) d.get("storage_key")).normalize();
+        if (!file.startsWith(dir) || file.equals(dir)) throw ApiException.notFound("document_not_found", "Document not found");
+        try { return Map.of("bytes", Files.readAllBytes(file), "contentType", d.get("content_type")); }
         catch (IOException e) { throw ApiException.notFound("document_not_found", "Document not found"); }
     }
 }

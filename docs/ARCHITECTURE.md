@@ -21,7 +21,8 @@ React admin     ──┘                       │  rides (state machine) · di
 * **Realtime events are hints.** They are published after the transaction commits; clients re-fetch REST state on every reconnect
   (`CONNECTED` synthetic event) and poll as a safety net. Payment/ride truth is always read from REST.
 * **Pluggable boundaries:** `RouteProvider`, `PaymentProvider`, `SmsSender`, `Notifier` (push). Development implementations are clearly labelled
-  and never pretend to be live (routes are flagged `ESTIMATED`, the payment gateway is `sandbox`).
+  and never pretend to be live (routes are flagged `ESTIMATED`, the payment gateway is `sandbox` and exists only when selected; the OTP sender `LogSmsSender`
+  delivers nothing and the prod profile refuses to start with it as the only channel).
 * **Observability:** correlation id (`X-Request-Id`, echoed in errors and logs), Actuator health/readiness/liveness, Prometheus metrics
   (`jolay.dispatch.*`, `jolay.rides.*`, `jolay.payments.*`), ECS-format JSON logs under the `prod` profile.
 
@@ -30,13 +31,23 @@ React admin     ──┘                       │  rides (state machine) · di
 redact query strings in proxy logs). Message: `{"type": "...", "data": {...}, "ts": "..."}`.
 Types: `RIDE_OFFER`, `OFFER_EXPIRED`, `OFFER_CANCELLED`, `DRIVER_ACCEPTED`, `DRIVER_ARRIVING`, `DRIVER_ARRIVED`, `RIDE_STARTED`, `RIDE_COMPLETED`,
 `RIDE_CANCELLED`, `RIDE_EXPIRED`, `DRIVER_CANCELLED`, `DRIVER_LOCATION_UPDATED`, `CUSTOMER_LOCATION_UPDATED` (driver only, while on the way to the pickup), `PAYMENT_STATUS_UPDATED`, `SUPPORT_MESSAGE`, `VERIFICATION_STATUS`.
-Events are delivered to the connections of the addressed user only. Single-instance only: to run >1 backend replica, fan events out through
-Postgres `LISTEN/NOTIFY` or a broker (not implemented).
+Events are delivered to the connections of the addressed user only, **from the memory of the instance that holds the connection** (see Scaling).
 
 ## Maps
 Routing/geocoding are interfaces. Production needs a licensed provider (Google Maps, Mapbox or 2GIS) — **none is integrated**; this requires an API
 contract and credentials. Apps render 2GIS tiles served by the backend at `/api/v1/geo/tiles/{z}/{x}/{y}.png` (override with `TILE_URL`).
 
+## Scaling: one backend instance only
+The backend is **not horizontally scalable today**. State that lives in the memory of one instance:
+* WebSocket sessions and event fan-out (`realtime`): a user connected to instance A never sees events produced on instance B;
+* HTTP rate limiting (`RateLimitFilter`), login lockout (`AuthService`) and promo-guess limiting: counters are per instance, so N instances multiply every limit by N;
+* the map-tile LRU cache and circuit breakers (harmless, only less efficient).
+Running more than one replica therefore weakens brute-force protection and silently drops realtime events (clients fall back to REST polling/re-sync).
+Before scaling out, move these to shared state (PostgreSQL tables or Redis for counters; Postgres `LISTEN/NOTIFY`, Redis pub/sub or a broker for events) and
+re-measure. Until then the Kubernetes manifest pins `replicas: 1`, and a gateway/ingress rate limit is additionally required (docs/SECURITY.md).
+
 ## Not yet built
-Delivery/partner modules, fraud scoring, safety tooling beyond dialing 112, FCM, real SMS, payment-provider adapters, driver payout workflow.
+Real payment-provider adapters (only the sandbox gateway exists; public deployments run with card payments off), a real SMS gateway, verified FCM delivery,
+bank payout integration, durable encrypted document storage, shared state for multi-instance operation, tariff zones as polygons, legal texts.
+Delivery (Express), the partner portal and marketplace, SOS/incidents, risk flags and driver/partner payouts **are** built (docs/product/STATUS.md).
 Planned extension points: new modules go under `kz.jolay.<module>` with their own migrations; feature flags can live in `application_settings`.

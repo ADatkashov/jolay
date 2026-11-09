@@ -6,13 +6,13 @@ Idempotency: send `Idempotency-Key` on `POST /rides`, `POST /wallet/top-ups`, `P
 
 | Area | Endpoints |
 |---|---|
-| Auth (public) | `POST /auth/register` · `resend-otp` · `verify-otp` · `login` · `refresh` · `logout` · `forgot-password` · `reset-password` |
+| Auth (public) | `POST /auth/register` · `resend-otp` · `verify-otp` · `login` · `refresh` · `logout` · `forgot-password` · `reset-password` (a failing OTP gateway answers `503 otp_delivery_failed` on register/resend; forgot-password stays silent) |
 | Catalog (public) | `GET /catalog/categories?lang=` · `/catalog/cities` |
 | Geo | `GET /geo/places?q=&lat=&lng=` · `GET /geo/reverse?lat=&lng=` |
 | Profile (any role) | `GET/PUT/DELETE /customers/me` · customer: `GET/POST/DELETE /customers/me/addresses` · `GET /customers/me/recent-destinations` |
 | Rides (customer) | `POST /rides/estimate` · `POST /rides` · `GET /rides/active` · `GET /rides/history?tab=completed|ongoing|cancelled` · `GET /rides/{id}` · `GET /rides/{id}/fare` · `POST /rides/{id}/cancel` · `POST /rides/{id}/rating` |
 | Driver | `POST /drivers/register` · `GET /drivers/me` · `POST/GET /drivers/documents` · `PUT /drivers/availability` · `POST /drivers/location` · `GET /drivers/offers` · `POST /drivers/offers/{id}/accept|decline` · `GET /drivers/rides/active|history` · `POST /drivers/rides/{id}/en-route|arrived|start|complete|cancel` · `GET /drivers/earnings?period=today|week|month` |
-| Wallet / payments | `GET /wallet` · `GET /wallet/transactions` · `POST /wallet/top-ups` · `POST /payments/initialize` · `GET /payments/{id}` · `POST /payments/webhooks/{provider}` (signature) · `POST /payments/{id}/sandbox-checkout` (sandbox only) |
+| Wallet / payments | `GET /wallet` · `GET /wallet/transactions` · `POST /wallet/top-ups` · `POST /payments/initialize` · `GET /payments/{id}` · `POST /payments/webhooks/{provider}` (signature) · `POST /payments/{id}/sandbox-checkout` (exists only when `JOLAY_PAYMENT_PROVIDER=sandbox`; 404 otherwise) |
 | Support | `POST/GET /support/tickets` · `GET/POST /support/tickets/{id}/messages` |
 | Safety | `POST /incidents` (SOS/COMPLAINT/ACCIDENT/OTHER) · `GET /incidents` |
 | Payouts (driver) | `POST/GET /drivers/payouts` |

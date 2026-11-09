@@ -33,6 +33,7 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final JwtService jwt;
     private final SecurityProps props;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthService.class);
     private final SmsSender sms;
     private final MfaService mfa;
     private final kz.jolay.referral.ReferralService referrals;
@@ -117,7 +118,12 @@ public class AuthService {
         jdbc.sql("INSERT INTO otp_verifications(phone,purpose,code_hash,expires_at) VALUES (:p,:pu,:h,:e)")
                 .param("p", phone).param("pu", purpose).param("h", otpHash(phone, code.toString()))
                 .param("e", OffsetDateTime.now(ZoneOffset.UTC).plus(props.otpTtl())).update();
-        sms.send(phone, "JOLAY: " + code + " - your verification code. Do not share it.");
+        try { sms.sendOtp(phone, code.toString()); }
+        catch (ApiException e) { throw e; }
+        catch (RuntimeException e) {       // a gateway failure must not become a 500 that differs between known and unknown accounts
+            log.error("OTP delivery failed ({}): {}", purpose, e.getClass().getSimpleName());
+            throw ApiException.unavailable("otp_delivery_failed", "The verification code could not be sent. Try again later");
+        }
     }
 
     /** Verifies and consumes an OTP. Failed attempts are committed (noRollbackFor) so the limit is enforced. */

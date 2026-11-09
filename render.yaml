@@ -1,6 +1,13 @@
 # Render Blueprint: backend (Docker) + admin and partner consoles (static sites).
 # Database: Neon (PostgreSQL + PostGIS), created outside Render. Secrets are never stored here:
 # every `sync: false` variable is entered once in the Render dashboard.
+#
+# THIS BLUEPRINT IS A PUBLIC PILOT/STAGING TEMPLATE, NOT A PRODUCTION SIGN-OFF. It starts the backend in the `prod` profile, which refuses
+# unsafe settings (sandbox payments, localhost/http origins, an OTP channel that delivers nothing, weak secrets). Known limits that Render's
+# free plan cannot fix (see docs/DEPLOYMENT.md#production-readiness):
+#   * no durable disk: driver documents (IDs, licences) written by the backend are lost on every restart/deploy and are not encrypted;
+#   * a single instance only: rate limits, login lockout and WebSocket events live in that instance's memory;
+#   * card payments are OFF (JOLAY_PAYMENT_PROVIDER=none): cash and wallet rides only, until a real payment adapter exists.
 services:
   - type: web
     name: jolay-backend
@@ -17,16 +24,22 @@ services:
       - { key: JOLAY_DB_URL, value: "jdbc:postgresql://ep-super-bird-ba283eum.c-8.eu-central-1.aws.neon.tech/jolay?sslmode=require" }
       - { key: JOLAY_DB_USER, value: jolay_owner }
       - { key: JOLAY_DB_POOL, value: "5" }          # Neon free compute has few connections
-      - { key: JOLAY_CORS_ORIGINS, value: "http://localhost:5173,http://localhost:5174" }  # the static sites proxy /api, so no browser CORS is needed
-      - { key: JOLAY_SMS_PROVIDER, value: log }
+      # https:// origins only (no localhost, no wildcard): the prod profile refuses anything else. Change them if you rename the static sites or add a domain.
+      - { key: JOLAY_CORS_ORIGINS, value: "https://jolay-admin.onrender.com,https://jolay-partner.onrender.com" }
       - { key: JOLAY_SMS_LOG_CODE, value: "false" }
-      - { key: JOLAY_PAYMENT_PROVIDER, value: sandbox }
-      - { key: JOLAY_ALLOW_SANDBOX_PAYMENTS, value: "true" }   # DEMO ONLY: remove once a real payment provider exists
+      # One-time codes go to WhatsApp first. Startup fails until these are set (create them in Meta WhatsApp Manager; see docs/DEPLOYMENT.md). Add a real
+      # SmsSender bean as well if people without WhatsApp must be able to sign up.
+      - { key: JOLAY_WHATSAPP_ENABLED, value: "true" }
+      - { key: JOLAY_WHATSAPP_PHONE_NUMBER_ID, sync: false }
+      - { key: JOLAY_WHATSAPP_TOKEN, sync: false }
+      - { key: JOLAY_WHATSAPP_TEMPLATE, sync: false }        # utility template, body {{1}}: SOS alerts
+      - { key: JOLAY_WHATSAPP_OTP_TEMPLATE, sync: false }    # authentication template with a Copy code button: OTP
+      # No card payments in a public deployment: the sandbox gateway would let any customer mark their own payments as paid.
+      - { key: JOLAY_PAYMENT_PROVIDER, value: none }
       - { key: JOLAY_ADMIN_PHONE, value: "+77000000000" }
       - { key: JOLAY_DB_PASSWORD, sync: false }
       - { key: JOLAY_JWT_SECRET, sync: false }
       - { key: JOLAY_ADMIN_PASSWORD, sync: false }
-      - { key: JOLAY_SANDBOX_WEBHOOK_SECRET, sync: false }
       - { key: JOLAY_2GIS_KEY, sync: false }       # 2GIS Places API key: address search + reverse geocoding. Empty = only the 12 seeded places
 
   - type: web
