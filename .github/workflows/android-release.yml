@@ -159,7 +159,7 @@ jobs:
           cp "apps/${{ matrix.app }}/build/app/outputs/bundle/release/app-release.aab" "release-out/jolay-${{ matrix.app }}-${{ steps.version.outputs.name }}.aab"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ matrix.app }}-v${{ steps.version.outputs.name }}-${{ github.run_number }}
           name: "${{ matrix.app }} v${{ steps.version.outputs.name }} (build ${{ github.run_number }})"
